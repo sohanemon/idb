@@ -171,15 +171,8 @@ export class IDBStorage {
   /**
    * Get the default store instance
    */
-  async getStore(): Promise<IDBStore> {
-    return this.get(this.config.store);
-  }
-
-  /**
-   * Get the default store instance (convenience getter)
-   */
   get store(): Promise<IDBStore> {
-    return this.getStore();
+    return this.get(this.config.store);
   }
 
   /**

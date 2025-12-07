@@ -45,11 +45,11 @@ export function useIDBStorage<T>(
   (value: T | ((prevState: T) => T)) => Promise<void>,
   () => Promise<void>,
 ] {
-  const config = getGlobalConfig();
-  const { key, defaultValue } = options;
+  const globalConfig = getGlobalConfig();
+  const { key, defaultValue, ...opts } = options;
+  const config = { ...globalConfig, ...opts };
 
   // Ensure version is valid (must be positive integer)
-  const validVersion = Math.max(1, Math.floor(config.version || 1));
 
   const [storedValue, setStoredValue] = React.useState<T>(defaultValue);
   const [storeInstance, setStoreInstance] = React.useState<IDBStore | null>(
@@ -69,7 +69,7 @@ export function useIDBStorage<T>(
         }
 
         const storage = new IDBStorage(config);
-        const storeInst = await storage.getStore();
+        const storeInst = await storage.get(config.store);
 
         if (isMounted) {
           storageRef.current = storage;
@@ -111,8 +111,6 @@ export function useIDBStorage<T>(
 
   const updateStoredValue = React.useCallback(
     async (valueOrFn: T | ((prevState: T) => T)) => {
-      if (!storeInstance) return;
-
       const newValue =
         typeof valueOrFn === 'function'
           ? (valueOrFn as (prevState: T) => T)(storedValue)
@@ -120,24 +118,26 @@ export function useIDBStorage<T>(
 
       setStoredValue(newValue);
 
-      try {
-        await storeInstance.set(key, newValue);
-      } catch (error) {
-        console.error('Failed to save value to IndexedDB:', error);
+      if (storeInstance) {
+        try {
+          await storeInstance.set(key, newValue);
+        } catch (error) {
+          console.error('Failed to save value to IndexedDB:', error);
+        }
       }
     },
     [storeInstance, key, storedValue],
   );
 
   const removeStoredValue = React.useCallback(async () => {
-    if (!storeInstance) return;
-
     setStoredValue(defaultValue);
 
-    try {
-      await storeInstance.delete(key);
-    } catch (error) {
-      console.error('Failed to remove value from IndexedDB:', error);
+    if (storeInstance) {
+      try {
+        await storeInstance.delete(key);
+      } catch (error) {
+        console.error('Failed to remove value from IndexedDB:', error);
+      }
     }
   }, [storeInstance, key, defaultValue]);
 

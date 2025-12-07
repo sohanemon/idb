@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { IDBConfig, useIDBStorage } from '../../dist/index.js';
+import React, { useState, useEffect } from 'react';
+import { IDBConfig, useIDBStorage, IDBStorage } from '../../dist/index.js';
 
 export function App() {
   return (
-    <IDBConfig database="playground-db-2" store="playground-store">
+    <IDBConfig database="playground3" version={2} store="playground-store-2">
       <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
         <h1>IndexedDB Storage Playground</h1>
         <p>
@@ -28,6 +28,16 @@ export function App() {
         <div style={{ marginBottom: '30px' }}>
           <h2>Settings</h2>
           <Settings />
+        </div>
+
+        <div style={{ marginBottom: '30px' }}>
+          <h2>Settings</h2>
+          <Settings />
+        </div>
+
+        <div style={{ marginBottom: '30px' }}>
+          <h2>IDBStorage Utils</h2>
+          <IDBStorageUtils />
         </div>
       </div>
     </IDBConfig>
@@ -286,6 +296,215 @@ function Settings() {
       </div>
       <div style={{ marginTop: '10px' }}>
         <strong>Current Settings:</strong> {JSON.stringify(settings, null, 2)}
+      </div>
+    </div>
+  );
+}
+
+function IDBStorageUtils() {
+  const [storage] = useState(
+    () => new IDBStorage({ database: 'playground3', store: 'utils-store' }),
+  );
+  const [store, setStore] = useState<any>(null);
+  const [key, setKey] = useState('test-key');
+  const [value, setValue] = useState('test-value');
+  const [result, setResult] = useState<any>(null);
+  const [keys, setKeys] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const initStore = async () => {
+      const s = await storage.getStore();
+      setStore(s);
+      await refreshKeys(s);
+    };
+    initStore();
+  }, [storage]);
+
+  const refreshKeys = async (s: any) => {
+    if (s) {
+      const k = await s.keys();
+      setKeys(k);
+    }
+  };
+
+  const handleGet = async () => {
+    if (!store) return;
+    setLoading(true);
+    try {
+      const val = await store.get(key);
+      setResult(val);
+    } catch (e) {
+      setResult(`Error: ${e}`);
+    }
+    setLoading(false);
+  };
+
+  const handleSet = async () => {
+    if (!store) return;
+    setLoading(true);
+    try {
+      await store.set(key, value);
+      setResult('Set successfully');
+      await refreshKeys(store);
+    } catch (e) {
+      setResult(`Error: ${e}`);
+    }
+    setLoading(false);
+  };
+
+  const handleDelete = async () => {
+    if (!store) return;
+    setLoading(true);
+    try {
+      await store.delete(key);
+      setResult('Deleted successfully');
+      await refreshKeys(store);
+    } catch (e) {
+      setResult(`Error: ${e}`);
+    }
+    setLoading(false);
+  };
+
+  const handleGetMany = async () => {
+    if (!store) return;
+    setLoading(true);
+    try {
+      const vals = await store.getMany([key, 'another-key', 'third-key']);
+      setResult(vals);
+    } catch (e) {
+      setResult(`Error: ${e}`);
+    }
+    setLoading(false);
+  };
+
+  const handleSetMany = async () => {
+    if (!store) return;
+    setLoading(true);
+    try {
+      await store.setMany([
+        [key, value],
+        ['batch-key-1', 'batch-value-1'],
+        ['batch-key-2', 'batch-value-2'],
+      ]);
+      setResult('Set many successfully');
+      await refreshKeys(store);
+    } catch (e) {
+      setResult(`Error: ${e}`);
+    }
+    setLoading(false);
+  };
+
+  const handleUpdate = async () => {
+    if (!store) return;
+    setLoading(true);
+    try {
+      await store.update(key, (val: any) =>
+        val ? val + ' (updated)' : 'new value',
+      );
+      setResult('Updated successfully');
+      await refreshKeys(store);
+    } catch (e) {
+      setResult(`Error: ${e}`);
+    }
+    setLoading(false);
+  };
+
+  const handleClear = async () => {
+    if (!store) return;
+    setLoading(true);
+    try {
+      await store.clear();
+      setResult('Cleared successfully');
+      await refreshKeys(store);
+    } catch (e) {
+      setResult(`Error: ${e}`);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div
+      style={{ border: '1px solid #ccc', padding: '15px', borderRadius: '5px' }}
+    >
+      <h3>IDBStorage Direct Utils</h3>
+      <p>Demonstrates direct usage of IDBStorage and IDBStore classes</p>
+
+      <div style={{ marginBottom: '10px' }}>
+        <label>Key: </label>
+        <input
+          type="text"
+          value={key}
+          onChange={(e) => setKey(e.target.value)}
+          style={{ marginLeft: '10px', padding: '5px', width: '150px' }}
+        />
+        <label style={{ marginLeft: '20px' }}>Value: </label>
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          style={{ marginLeft: '10px', padding: '5px', width: '150px' }}
+        />
+      </div>
+
+      <div style={{ marginBottom: '10px' }}>
+        <button
+          onClick={handleGet}
+          disabled={loading}
+          style={{ marginRight: '5px', padding: '5px 10px' }}
+        >
+          Get
+        </button>
+        <button
+          onClick={handleSet}
+          disabled={loading}
+          style={{ marginRight: '5px', padding: '5px 10px' }}
+        >
+          Set
+        </button>
+        <button
+          onClick={handleDelete}
+          disabled={loading}
+          style={{ marginRight: '5px', padding: '5px 10px' }}
+        >
+          Delete
+        </button>
+        <button
+          onClick={handleGetMany}
+          disabled={loading}
+          style={{ marginRight: '5px', padding: '5px 10px' }}
+        >
+          Get Many
+        </button>
+        <button
+          onClick={handleSetMany}
+          disabled={loading}
+          style={{ marginRight: '5px', padding: '5px 10px' }}
+        >
+          Set Many
+        </button>
+        <button
+          onClick={handleUpdate}
+          disabled={loading}
+          style={{ marginRight: '5px', padding: '5px 10px' }}
+        >
+          Update
+        </button>
+        <button
+          onClick={handleClear}
+          disabled={loading}
+          style={{ padding: '5px 10px' }}
+        >
+          Clear All
+        </button>
+      </div>
+
+      <div style={{ marginBottom: '10px' }}>
+        <strong>Result:</strong> {JSON.stringify(result, null, 2)}
+      </div>
+
+      <div>
+        <strong>All Keys:</strong> {JSON.stringify(keys)}
       </div>
     </div>
   );

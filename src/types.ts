@@ -13,7 +13,7 @@ export interface IDBConfigValues {
 /**
  * Configuration options for IDBStorage.
  */
-export interface IDBStorageOptions<T> extends IDBConfigValues {
+export interface IDBStorageOptions<T> extends Partial<IDBConfigValues> {
   /** The key for the stored value */
   key: string;
   /** The default value if no value is found in IndexedDB */

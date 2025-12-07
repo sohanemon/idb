@@ -1,5 +1,6 @@
 import { vi } from 'vitest';
 import '@testing-library/jest-dom';
+import 'fake-indexeddb/auto';
 
 // Mock matchMedia
 Object.defineProperty(window, 'matchMedia', {
