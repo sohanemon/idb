@@ -1,10 +1,6 @@
 import * as React from 'react';
-import type { IDBConfigProps, IDBConfigValues } from './types';
-
-/**
- * Context for IDB configuration.
- */
-const IDBContext = React.createContext<IDBConfigValues | null>(null);
+import { configureIDBStorage } from './config';
+import type { IDBConfigProps } from './types';
 
 /**
  * Provider component to configure default IDBStorage settings.
@@ -21,13 +17,10 @@ const IDBContext = React.createContext<IDBConfigValues | null>(null);
  * ```
  */
 export function IDBConfig({ children, ...conf }: IDBConfigProps) {
-  return <IDBContext.Provider value={conf}>{children}</IDBContext.Provider>;
-}
+  // Update global config when provider is used
+  React.useEffect(() => {
+    configureIDBStorage(conf);
+  }, [conf]);
 
-/**
- * Hook to access the current IDB context.
- * @returns The current context value or null if no provider is used
- */
-export function useIDBContext(): IDBConfigValues | null {
-  return React.useContext(IDBContext);
+  return children;
 }

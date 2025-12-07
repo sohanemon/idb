@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { getGlobalConfig } from './config';
-import { useIDBContext } from './IDBConfig';
-import { IDBStorage, IDBStore } from './IDBStorage';
+import { IDBStorage, IDBStore } from './idb-storage';
 import type { IDBStorageOptions } from './types';
 
 /**
@@ -46,18 +45,11 @@ export function useIDBStorage<T>(
   (value: T | ((prevState: T) => T)) => Promise<void>,
   () => Promise<void>,
 ] {
-  const context = useIDBContext();
-  const globalConfig = getGlobalConfig();
-  const {
-    key,
-    defaultValue,
-    database = context?.database ?? globalConfig.database,
-    version = context?.version ?? globalConfig.version,
-    store = context?.store ?? globalConfig.store,
-  } = options;
+  const config = getGlobalConfig();
+  const { key, defaultValue } = options;
 
   // Ensure version is valid (must be positive integer)
-  const validVersion = Math.max(1, Math.floor(version || 1));
+  const validVersion = Math.max(1, Math.floor(config.version || 1));
 
   const [storedValue, setStoredValue] = React.useState<T>(defaultValue);
   const [storeInstance, setStoreInstance] = React.useState<IDBStore | null>(
@@ -76,11 +68,7 @@ export function useIDBStorage<T>(
           storageRef.current = null;
         }
 
-        const storage = new IDBStorage({
-          database,
-          version: validVersion,
-          store,
-        });
+        const storage = new IDBStorage(config);
         const storeInst = await storage.getStore();
 
         if (isMounted) {
@@ -102,7 +90,7 @@ export function useIDBStorage<T>(
         storageRef.current = null;
       }
     };
-  }, [database, validVersion, store]);
+  }, [config]);
 
   React.useEffect(() => {
     if (!storeInstance) return;
