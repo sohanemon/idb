@@ -1,40 +1,36 @@
 import React, { useState } from 'react';
-import { configureIDBStorage, useIDBStorage } from '../../dist/index.js';
+import { IDBConfig, useIDBStorage } from '../../dist/index.js';
 
 export function App() {
-  // Configure global defaults
-  React.useEffect(() => {
-    configureIDBStorage({
-      database: 'playground-db',
-      store: 'playground-store',
-    });
-  }, []);
-
   return (
-    <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
-      <h1>IndexedDB Storage Playground</h1>
-      <p>This playground demonstrates the useIDBStorage hook functionality.</p>
+    <IDBConfig database="playground-db" store="playground-store">
+      <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
+        <h1>IndexedDB Storage Playground</h1>
+        <p>
+          This playground demonstrates the useIDBStorage hook functionality.
+        </p>
 
-      <div style={{ marginBottom: '30px' }}>
-        <h2>User Profile</h2>
-        <UserProfile />
-      </div>
+        <div style={{ marginBottom: '30px' }}>
+          <h2>User Profile</h2>
+          <UserProfile />
+        </div>
 
-      <div style={{ marginBottom: '30px' }}>
-        <h2>Counter</h2>
-        <Counter />
-      </div>
+        <div style={{ marginBottom: '30px' }}>
+          <h2>Counter</h2>
+          <Counter />
+        </div>
 
-      <div style={{ marginBottom: '30px' }}>
-        <h2>Todo List</h2>
-        <TodoList />
-      </div>
+        <div style={{ marginBottom: '30px' }}>
+          <h2>Todo List</h2>
+          <TodoList />
+        </div>
 
-      <div style={{ marginBottom: '30px' }}>
-        <h2>Settings</h2>
-        <Settings />
+        <div style={{ marginBottom: '30px' }}>
+          <h2>Settings</h2>
+          <Settings />
+        </div>
       </div>
-    </div>
+    </IDBConfig>
   );
 }
 

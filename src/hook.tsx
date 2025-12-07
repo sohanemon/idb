@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { getGlobalConfig } from './config';
-import { openDB, getFromDB, setInDB, removeFromDB } from './database';
+import { getFromDB, openDB, removeFromDB, setInDB } from './database';
+import { useIDBContext } from './IDBConfig';
 import type { IDBStorageOptions } from './types';
 
 /**
@@ -11,7 +12,12 @@ import type { IDBStorageOptions } from './types';
  *
  * @example
  * ```tsx
- * // Configure global defaults (optional)
+ * // Option 1: Use IDBConfig provider (recommended for React apps)
+ * <IDBConfig database="myApp" store="data">
+ *   <App />
+ * </IDBConfig>
+ *
+ * // Option 2: Configure global defaults
  * configureIDBStorage({
  *   database: 'myApp',
  *   store: 'data'
@@ -20,8 +26,8 @@ import type { IDBStorageOptions } from './types';
  * const [userData, setUserData, removeUserData] = useIDBStorage({
  *   key: 'currentUser',
  *   defaultValue: { name: '', email: '' },
- *   // database: 'myApp', // optional, uses global default
- *   // store: 'users' // optional, uses global default
+ *   // database: 'myApp', // optional, uses context or global default
+ *   // store: 'users' // optional, uses context or global default
  * });
  *
  * // Update data
@@ -38,11 +44,12 @@ export function useIDBStorage<T>(
   (value: T | ((prevState: T) => T)) => Promise<void>,
   () => Promise<void>,
 ] {
+  const context = useIDBContext();
   const {
     key,
     defaultValue,
-    database = getGlobalConfig().database,
-    store = getGlobalConfig().store,
+    database = context?.database ?? getGlobalConfig().database,
+    store = context?.store ?? getGlobalConfig().store,
   } = options;
 
   const [storedValue, setStoredValue] = React.useState<T>(defaultValue);
