@@ -1,1 +1,2 @@
-export { configureIDBStorage, useIDBStorage } from './hook';
+export { configureIDBStorage } from './config';
+export { useIDBStorage } from './hook';

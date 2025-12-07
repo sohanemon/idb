@@ -1,114 +1,7 @@
 import * as React from 'react';
-
-/**
- * Global configuration for IDBStorage defaults.
- */
-let globalConfig = {
-  database: 'sohanemon-idb',
-  store: 'default',
-};
-
-/**
- * Configure global defaults for IDBStorage.
- */
-export function configureIDBStorage(config: {
-  database?: string;
-  store?: string;
-}) {
-  globalConfig = { ...globalConfig, ...config };
-}
-
-/**
- * Opens an IndexedDB database and creates a store if it doesn't exist.
- */
-const openDB = (
-  dbName: string,
-  storeName: string,
-  version = 1,
-): Promise<IDBDatabase> => {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(dbName, version);
-
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(storeName)) {
-        db.createObjectStore(storeName);
-      }
-    };
-  });
-};
-
-/**
- * Gets a value from IndexedDB.
- */
-function getFromDB<T>(
-  db: IDBDatabase,
-  storeName: string,
-  key: string,
-): Promise<T | undefined> {
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction([storeName], 'readonly');
-    const store = transaction.objectStore(storeName);
-    const request = store.get(key);
-
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-  });
-}
-
-/**
- * Sets a value in IndexedDB.
- */
-const setInDB = (
-  db: IDBDatabase,
-  storeName: string,
-  key: string,
-  value: any,
-): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction([storeName], 'readwrite');
-    const store = transaction.objectStore(storeName);
-    const request = store.put(value, key);
-
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve();
-  });
-};
-
-/**
- * Removes a value from IndexedDB.
- */
-const removeFromDB = (
-  db: IDBDatabase,
-  storeName: string,
-  key: string,
-): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction([storeName], 'readwrite');
-    const store = transaction.objectStore(storeName);
-    const request = store.delete(key);
-
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve();
-  });
-};
-
-/**
- * Configuration options for IDBStorage.
- */
-interface IDBStorageOptions<T extends Record<string, any>> {
-  /** The key for the stored value */
-  key: string;
-  /** The default value if no value is found in IndexedDB */
-  defaultValue: T;
-  /** The name of the IndexedDB database (optional, defaults to global config) */
-  database?: string;
-  /** The name of the object store (optional, defaults to global config) */
-  store?: string;
-}
+import { getGlobalConfig } from './config';
+import { openDB, getFromDB, setInDB, removeFromDB } from './database';
+import type { IDBStorageOptions } from './types';
 
 /**
  * Hook to persist state in IndexedDB with a clean object-based API.
@@ -138,7 +31,7 @@ interface IDBStorageOptions<T extends Record<string, any>> {
  * await removeUserData();
  * ```
  */
-export function useIDBStorage<T extends Record<string, any>>(
+export function useIDBStorage<T>(
   options: IDBStorageOptions<T>,
 ): [
   T,
@@ -148,8 +41,8 @@ export function useIDBStorage<T extends Record<string, any>>(
   const {
     key,
     defaultValue,
-    database = globalConfig.database,
-    store = globalConfig.store,
+    database = getGlobalConfig().database,
+    store = getGlobalConfig().store,
   } = options;
 
   const [storedValue, setStoredValue] = React.useState<T>(defaultValue);
