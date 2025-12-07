@@ -74,6 +74,24 @@ export function useIDBStorage<T>(
         if (isMounted) {
           storageRef.current = storage;
           setStoreInstance(storeInst);
+
+          // Load the initial value
+          try {
+            const value = await storeInst.get<T>(key);
+            if (isMounted && value !== undefined) {
+              setStoredValue(value);
+            }
+          } catch (error) {
+            // Only log if it's not an InvalidStateError (which happens when db is closed)
+            if (
+              !(
+                error instanceof DOMException &&
+                error.name === 'InvalidStateError'
+              )
+            ) {
+              console.error('Failed to load value from IndexedDB:', error);
+            }
+          }
         }
       } catch (error) {
         console.error('Failed to initialize IDBStorage:', error);
@@ -90,24 +108,7 @@ export function useIDBStorage<T>(
         storageRef.current = null;
       }
     };
-  }, [config]);
-
-  React.useEffect(() => {
-    if (!storeInstance) return;
-
-    const loadValue = async () => {
-      try {
-        const value = await storeInstance.get<T>(key);
-        if (value !== undefined) {
-          setStoredValue(value);
-        }
-      } catch (error) {
-        console.error('Failed to load value from IndexedDB:', error);
-      }
-    };
-
-    loadValue();
-  }, [storeInstance, key]);
+  }, [config, key]);
 
   const updateStoredValue = React.useCallback(
     async (valueOrFn: T | ((prevState: T) => T)) => {
@@ -122,7 +123,15 @@ export function useIDBStorage<T>(
         try {
           await storeInstance.set(key, newValue);
         } catch (error) {
-          console.error('Failed to save value to IndexedDB:', error);
+          // Only log if it's not an InvalidStateError
+          if (
+            !(
+              error instanceof DOMException &&
+              error.name === 'InvalidStateError'
+            )
+          ) {
+            console.error('Failed to save value to IndexedDB:', error);
+          }
         }
       }
     },
@@ -136,7 +145,12 @@ export function useIDBStorage<T>(
       try {
         await storeInstance.delete(key);
       } catch (error) {
-        console.error('Failed to remove value from IndexedDB:', error);
+        // Only log if it's not an InvalidStateError
+        if (
+          !(error instanceof DOMException && error.name === 'InvalidStateError')
+        ) {
+          console.error('Failed to remove value from IndexedDB:', error);
+        }
       }
     }
   }, [storeInstance, key, defaultValue]);

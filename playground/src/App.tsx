@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { IDBConfig, useIDBStorage, IDBStorage } from '../../dist/index.js';
+import React, { useEffect, useState } from 'react';
+import { IDBConfig, IDBStorage, useIDBStorage } from '../../dist/index.js';
 
 export function App() {
   return (
@@ -303,7 +303,12 @@ function Settings() {
 
 function IDBStorageUtils() {
   const [storage] = useState(
-    () => new IDBStorage({ database: 'playground3', store: 'utils-store' }),
+    () =>
+      new IDBStorage({
+        database: 'playground3',
+        version: 2,
+        store: 'utils-store',
+      }),
   );
   const [store, setStore] = useState<any>(null);
   const [key, setKey] = useState('test-key');
@@ -314,7 +319,7 @@ function IDBStorageUtils() {
 
   useEffect(() => {
     const initStore = async () => {
-      const s = await storage.getStore();
+      const s = await storage.store;
       setStore(s);
       await refreshKeys(s);
     };

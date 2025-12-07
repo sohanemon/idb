@@ -1,16 +1,16 @@
 /**
  * Opens an IndexedDB database and creates a store if it doesn't exist.
  */
-export const openDB = (
+export function openDB(
   dbName: string,
   storeName: string,
   version = 1,
-): Promise<IDBDatabase> => {
+  onVersionChange?: () => void,
+): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(dbName, version);
 
     request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
@@ -18,8 +18,20 @@ export const openDB = (
         db.createObjectStore(storeName);
       }
     };
+
+    request.onsuccess = () => {
+      const db = request.result;
+
+      // prevent forced-close issues
+      db.onversionchange = () => {
+        db.close();
+        onVersionChange?.();
+      };
+
+      resolve(db);
+    };
   });
-};
+}
 
 /**
  * Gets a value from IndexedDB.

@@ -153,6 +153,11 @@ export class IDBStorage {
       this.config.database,
       this.config.store,
       this.config.version,
+      () => {
+        // Reset the cached db when version changes
+        this.db = null;
+        this.dbPromise = null;
+      },
     );
     this.db = await this.dbPromise;
     this.dbPromise = null;
