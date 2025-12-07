@@ -1,4 +1,14 @@
 /**
+ * Database and store configuration values.
+ */
+export interface IDBConfigValues {
+  /** The name of the IndexedDB database */
+  database: string;
+  /** The name of the object store */
+  store: string;
+}
+
+/**
  * Configuration options for IDBStorage.
  */
 export interface IDBStorageOptions<T> {
@@ -7,19 +17,15 @@ export interface IDBStorageOptions<T> {
   /** The default value if no value is found in IndexedDB */
   defaultValue: T;
   /** The name of the IndexedDB database (optional, defaults to context or global config) */
-  database?: string;
+  database?: IDBConfigValues['database'];
   /** The name of the object store (optional, defaults to context or global config) */
-  store?: string;
+  store?: IDBConfigValues['store'];
 }
 
 /**
  * Props for the IDBConfig component.
  */
-export interface IDBConfigProps {
-  /** The name of the IndexedDB database */
-  database: string;
-  /** The name of the object store */
-  store: string;
+export interface IDBConfigProps extends IDBConfigValues {
   /** The children to render */
   children: React.ReactNode;
 }

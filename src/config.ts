@@ -1,7 +1,9 @@
+import type { IDBConfigValues } from './types';
+
 /**
  * Global configuration for IDBStorage defaults.
  */
-let globalConfig = {
+let globalConfig: IDBConfigValues = {
   database: 'sohanemon-idb',
   store: 'default',
 };
@@ -9,16 +11,13 @@ let globalConfig = {
 /**
  * Configure global defaults for IDBStorage.
  */
-export function configureIDBStorage(config: {
-  database?: string;
-  store?: string;
-}) {
+export function configureIDBStorage(config: Partial<IDBConfigValues>) {
   globalConfig = { ...globalConfig, ...config };
 }
 
 /**
  * Get the current global configuration.
  */
-export function getGlobalConfig() {
+export function getGlobalConfig(): IDBConfigValues {
   return { ...globalConfig };
 }
