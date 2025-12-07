@@ -1,3 +1,4 @@
+import { getGlobalConfig } from './config';
 import { getFromDB, openDB, removeFromDB, setInDB } from './database';
 import type { IDBConfigValues } from './types';
 
@@ -129,11 +130,14 @@ export class IDBStorage {
   private db: IDBDatabase | null = null;
   private dbPromise: Promise<IDBDatabase> | null = null;
 
-  constructor(config: IDBConfigValues) {
+  constructor(config?: IDBConfigValues) {
+    const defaultConfig = getGlobalConfig();
+
     this.config = {
-      database: config.database,
-      version: Math.max(1, Math.floor(config.version || 1)),
-      store: config.store,
+      database: config?.database || defaultConfig.database,
+      version:
+        Math.max(1, Math.floor(config?.version || 1)) || defaultConfig.version,
+      store: config?.store || defaultConfig.store,
     };
   }
 
@@ -169,6 +173,13 @@ export class IDBStorage {
    */
   async getStore(): Promise<IDBStore> {
     return this.get(this.config.store);
+  }
+
+  /**
+   * Get the default store instance (convenience getter)
+   */
+  get store(): Promise<IDBStore> {
+    return this.getStore();
   }
 
   /**

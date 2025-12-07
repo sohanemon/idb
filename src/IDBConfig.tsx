@@ -20,12 +20,8 @@ const IDBContext = React.createContext<IDBConfigValues | null>(null);
  * </IDBConfig>
  * ```
  */
-export function IDBConfig({ database, store, children }: IDBConfigProps) {
-  return (
-    <IDBContext.Provider value={{ database, store }}>
-      {children}
-    </IDBContext.Provider>
-  );
+export function IDBConfig({ children, ...conf }: IDBConfigProps) {
+  return <IDBContext.Provider value={conf}>{children}</IDBContext.Provider>;
 }
 
 /**

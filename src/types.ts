@@ -5,7 +5,7 @@ export interface IDBConfigValues {
   /** The name of the IndexedDB database */
   database: string;
   /** The version of the IndexedDB database */
-  version?: number;
+  version: number;
   /** The name of the object store */
   store: string;
 }

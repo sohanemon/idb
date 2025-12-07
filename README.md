@@ -24,6 +24,20 @@ npm install use-idb-storage
 
 ## Quick Start
 
+### Default Instance (Simplest)
+
+```typescript
+import { idb } from 'use-idb-storage';
+
+// Use default store immediately
+await idb.store.set('user', { name: 'John' });
+const user = await idb.store.get('user');
+
+// Use custom store
+const customStore = await idb.get('settings');
+await customStore.set('theme', 'dark');
+```
+
 ### React Hook (Recommended for React apps)
 
 ```tsx
@@ -70,7 +84,7 @@ const db = new IDBStorage({
 // Get a store
 const store = await db.get('my-store');
 // Or use default store
-const defaultStore = await db.getStore();
+const defaultStore = await db.store; // Convenience getter
 
 // Basic operations
 await store.set('user', { name: 'John', age: 30 });
@@ -92,6 +106,19 @@ await store.clear();
 
 ## API Reference
 
+### Default Instance
+
+```typescript
+import { idb } from 'use-idb-storage';
+```
+
+A pre-configured `IDBStorage` instance using global defaults. Perfect for quick usage without setup.
+
+- `idb.store: Promise<IDBStore>` - Default store instance
+- `idb.get(storeName: string): Promise<IDBStore>` - Get a specific store
+- `idb.drop(storeName: string): Promise<void>` - Clear a store
+- `idb.close(): void` - Close the database connection
+
 ### IDBStorage Class
 
 Main entry point for database operations.
@@ -101,6 +128,10 @@ Main entry point for database operations.
 ```typescript
 new IDBStorage(config: IDBConfigValues)
 ```
+
+#### Properties
+
+- `store: Promise<IDBStore>` - Default store instance (convenience getter)
 
 #### Methods
 
