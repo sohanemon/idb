@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { getGlobalConfig } from './config';
-import { getFromDB, openDB, removeFromDB, setInDB } from './database';
 import { useIDBContext } from './IDBConfig';
+import { IDBStorage, IDBStore } from './IDBStorage';
 import type { IDBStorageOptions } from './types';
 
 /**
@@ -60,48 +60,56 @@ export function useIDBStorage<T>(
   const validVersion = Math.max(1, Math.floor(version || 1));
 
   const [storedValue, setStoredValue] = React.useState<T>(defaultValue);
-  const [db, setDb] = React.useState<IDBDatabase | null>(null);
-  const dbRef = React.useRef<IDBDatabase | null>(null);
+  const [storeInstance, setStoreInstance] = React.useState<IDBStore | null>(
+    null,
+  );
+  const storageRef = React.useRef<IDBStorage | null>(null);
 
   React.useEffect(() => {
     let isMounted = true;
 
-    const initDB = async () => {
+    const initStorage = async () => {
       try {
-        // Close existing database connection if it exists
-        if (dbRef.current) {
-          dbRef.current.close();
-          dbRef.current = null;
+        // Close existing storage connection if it exists
+        if (storageRef.current) {
+          storageRef.current.close();
+          storageRef.current = null;
         }
 
-        const dbInstance = await openDB(database, store, validVersion);
+        const storage = new IDBStorage({
+          database,
+          version: validVersion,
+          store,
+        });
+        const storeInst = await storage.getStore();
+
         if (isMounted) {
-          dbRef.current = dbInstance;
-          setDb(dbInstance);
+          storageRef.current = storage;
+          setStoreInstance(storeInst);
         }
       } catch (error) {
-        console.error('Failed to open IndexedDB:', error);
+        console.error('Failed to initialize IDBStorage:', error);
       }
     };
 
-    initDB();
+    initStorage();
 
     return () => {
       isMounted = false;
-      // Close database connection on cleanup
-      if (dbRef.current) {
-        dbRef.current.close();
-        dbRef.current = null;
+      // Close storage connection on cleanup
+      if (storageRef.current) {
+        storageRef.current.close();
+        storageRef.current = null;
       }
     };
-  }, [database, version, store]);
+  }, [database, validVersion, store]);
 
   React.useEffect(() => {
-    if (!db) return;
+    if (!storeInstance) return;
 
     const loadValue = async () => {
       try {
-        const value = await getFromDB<T>(db, store, key);
+        const value = await storeInstance.get<T>(key);
         if (value !== undefined) {
           setStoredValue(value);
         }
@@ -111,21 +119,11 @@ export function useIDBStorage<T>(
     };
 
     loadValue();
-  }, [db, store, key]);
-
-  // Cleanup database connection on unmount
-  React.useEffect(() => {
-    return () => {
-      if (dbRef.current) {
-        dbRef.current.close();
-        dbRef.current = null;
-      }
-    };
-  }, []);
+  }, [storeInstance, key]);
 
   const updateStoredValue = React.useCallback(
     async (valueOrFn: T | ((prevState: T) => T)) => {
-      if (!db) return;
+      if (!storeInstance) return;
 
       const newValue =
         typeof valueOrFn === 'function'
@@ -135,25 +133,25 @@ export function useIDBStorage<T>(
       setStoredValue(newValue);
 
       try {
-        await setInDB(db, store, key, newValue);
+        await storeInstance.set(key, newValue);
       } catch (error) {
         console.error('Failed to save value to IndexedDB:', error);
       }
     },
-    [db, store, key, storedValue],
+    [storeInstance, key, storedValue],
   );
 
   const removeStoredValue = React.useCallback(async () => {
-    if (!db) return;
+    if (!storeInstance) return;
 
     setStoredValue(defaultValue);
 
     try {
-      await removeFromDB(db, store, key);
+      await storeInstance.delete(key);
     } catch (error) {
       console.error('Failed to remove value from IndexedDB:', error);
     }
-  }, [db, store, key, defaultValue]);
+  }, [storeInstance, key, defaultValue]);
 
   return [storedValue, updateStoredValue, removeStoredValue];
 }
