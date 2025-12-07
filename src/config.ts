@@ -5,6 +5,7 @@ import type { IDBConfigValues } from './types';
  */
 let globalConfig: IDBConfigValues = {
   database: 'sohanemon-idb',
+  version: 1,
   store: 'default',
 };
 

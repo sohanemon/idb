@@ -3,7 +3,7 @@ import { IDBConfig, useIDBStorage } from '../../dist/index.js';
 
 export function App() {
   return (
-    <IDBConfig database="playground-db" store="playground-store">
+    <IDBConfig database="playground-db" version={3} store="playground-store">
       <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
         <h1>IndexedDB Storage Playground</h1>
         <p>

@@ -4,6 +4,8 @@
 export interface IDBConfigValues {
   /** The name of the IndexedDB database */
   database: string;
+  /** The version of the IndexedDB database */
+  version?: number;
   /** The name of the object store */
   store: string;
 }
@@ -18,6 +20,8 @@ export interface IDBStorageOptions<T> {
   defaultValue: T;
   /** The name of the IndexedDB database (optional, defaults to context or global config) */
   database?: IDBConfigValues['database'];
+  /** The version of the IndexedDB database (optional, defaults to context or global config) */
+  version?: IDBConfigValues['version'];
   /** The name of the object store (optional, defaults to context or global config) */
   store?: IDBConfigValues['store'];
 }

@@ -35,3 +35,4 @@ yarn-error.log*
 bun.lockb
 pnpm-lock.yaml
 dist
+dist-playground

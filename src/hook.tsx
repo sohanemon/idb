@@ -12,21 +12,19 @@ import type { IDBStorageOptions } from './types';
  *
  * @example
  * ```tsx
- * // Option 1: Use IDBConfig provider (recommended for React apps)
- * <IDBConfig database="myApp" store="data">
+ * // Option 1: Using the provider (recommended)
+ * <IDBConfig database="myApp" version={2} store="data">
  *   <App />
  * </IDBConfig>
  *
- * // Option 2: Configure global defaults
- * configureIDBStorage({
- *   database: 'myApp',
- *   store: 'data'
- * });
+ * // Option 2: Global config
+ * configureIDBStorage({ database: 'myApp', version: 2, store: 'data' });
  *
  * const [userData, setUserData, removeUserData] = useIDBStorage({
  *   key: 'currentUser',
  *   defaultValue: { name: '', email: '' },
  *   // database: 'myApp', // optional, uses context or global default
+ *   // version: 2, // optional, uses context or global default (increment for upgrades)
  *   // store: 'users' // optional, uses context or global default
  * });
  *
@@ -36,6 +34,10 @@ import type { IDBStorageOptions } from './types';
  * // Remove data
  * await removeUserData();
  * ```
+ *
+ * @note The version parameter is used for IndexedDB database versioning.
+ * When you increment the version, it triggers database upgrades. You cannot
+ * "downgrade" to a lower version once a database exists with a higher version.
  */
 export function useIDBStorage<T>(
   options: IDBStorageOptions<T>,
@@ -45,23 +47,36 @@ export function useIDBStorage<T>(
   () => Promise<void>,
 ] {
   const context = useIDBContext();
+  const globalConfig = getGlobalConfig();
   const {
     key,
     defaultValue,
-    database = context?.database ?? getGlobalConfig().database,
-    store = context?.store ?? getGlobalConfig().store,
+    database = context?.database ?? globalConfig.database,
+    version = context?.version ?? globalConfig.version,
+    store = context?.store ?? globalConfig.store,
   } = options;
+
+  // Ensure version is valid (must be positive integer)
+  const validVersion = Math.max(1, Math.floor(version || 1));
 
   const [storedValue, setStoredValue] = React.useState<T>(defaultValue);
   const [db, setDb] = React.useState<IDBDatabase | null>(null);
+  const dbRef = React.useRef<IDBDatabase | null>(null);
 
   React.useEffect(() => {
     let isMounted = true;
 
     const initDB = async () => {
       try {
-        const dbInstance = await openDB(database, store);
+        // Close existing database connection if it exists
+        if (dbRef.current) {
+          dbRef.current.close();
+          dbRef.current = null;
+        }
+
+        const dbInstance = await openDB(database, store, validVersion);
         if (isMounted) {
+          dbRef.current = dbInstance;
           setDb(dbInstance);
         }
       } catch (error) {
@@ -73,8 +88,13 @@ export function useIDBStorage<T>(
 
     return () => {
       isMounted = false;
+      // Close database connection on cleanup
+      if (dbRef.current) {
+        dbRef.current.close();
+        dbRef.current = null;
+      }
     };
-  }, [database, store]);
+  }, [database, version, store]);
 
   React.useEffect(() => {
     if (!db) return;
@@ -92,6 +112,16 @@ export function useIDBStorage<T>(
 
     loadValue();
   }, [db, store, key]);
+
+  // Cleanup database connection on unmount
+  React.useEffect(() => {
+    return () => {
+      if (dbRef.current) {
+        dbRef.current.close();
+        dbRef.current = null;
+      }
+    };
+  }, []);
 
   const updateStoredValue = React.useCallback(
     async (valueOrFn: T | ((prevState: T) => T)) => {
