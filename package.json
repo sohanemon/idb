@@ -1,0 +1,70 @@
+{
+  "name": "@sohanemon/idb",
+  "version": "0.0.1",
+  "author": "Sohan Emon <sohanemon@outlook.com>",
+  "description": "",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "source": "./src/index.ts",
+  "types": "./dist/index.d.cts",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:list": "vitest list",
+    "test:log": "vitest run --reporter verbose",
+    "test:ui": "vitest --ui",
+    "check": "biome check .",
+    "fix": "biome check --diagnostic-level=error --write .",
+    "lint": "biome lint .",
+    "lint:fix": "biome lint --write --unsafe .",
+    "format": "biome format .",
+    "format:write": "biome format . --write",
+    "typecheck": "tsgo --noEmit",
+    "release": "tsgo --noEmit && npm run build && npm publish"
+  },
+  "keywords": [
+    "use-indexeddb",
+    "indexeddb",
+    "idb",
+    "localstorage"
+  ],
+  "license": "ISC",
+  "homepage": "https://sohanjs.web.app/idb",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sohanemon/idb.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sohanemon/idb/issues"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.3.8",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@tsconfig/strictest": "^2.0.8",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "@vitest/ui": "^4.0.14",
+    "jsdom": "^27.2.0",
+    "tsdown": "^0.16.4",
+    "typescript": "^5.9.3",
+    "vite": "npm:rolldown-vite@^7.2.5",
+    "vitest": "^4.0.14"
+  },
+  "peerDependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
