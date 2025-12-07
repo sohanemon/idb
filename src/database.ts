@@ -1,5 +1,9 @@
+// Singleton database connections cache
+const dbConnections = new Map<string, Promise<IDBDatabase>>();
+
 /**
  * Opens an IndexedDB database and creates a store if it doesn't exist.
+ * Uses singleton pattern to reuse connections for the same database.
  */
 export function openDB(
   dbName: string,
@@ -7,10 +11,19 @@ export function openDB(
   version = 1,
   onVersionChange?: () => void,
 ): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
+  const key = `${dbName}:${version}:${storeName}`;
+
+  if (dbConnections.has(key)) {
+    return dbConnections.get(key)!;
+  }
+
+  const dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(dbName, version);
 
-    request.onerror = () => reject(request.error);
+    request.onerror = () => {
+      dbConnections.delete(key);
+      reject(request.error);
+    };
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
@@ -22,15 +35,30 @@ export function openDB(
     request.onsuccess = () => {
       const db = request.result;
 
+      // Check if the store exists; if not, close and reopen with higher version
+      if (!db.objectStoreNames.contains(storeName)) {
+        db.close();
+        dbConnections.delete(key);
+        // Recursively open with higher version
+        openDB(dbName, storeName, version + 1, onVersionChange)
+          .then(resolve)
+          .catch(reject);
+        return;
+      }
+
       // prevent forced-close issues
       db.onversionchange = () => {
         db.close();
+        dbConnections.delete(key);
         onVersionChange?.();
       };
 
       resolve(db);
     };
   });
+
+  dbConnections.set(key, dbPromise);
+  return dbPromise;
 }
 
 /**

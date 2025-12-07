@@ -68,7 +68,7 @@ export function useIDBStorage<T>(
           storageRef.current = null;
         }
 
-        const storage = new IDBStorage(config);
+        const storage = IDBStorage.getInstance(config);
         const storeInst = await storage.get(config.store);
 
         if (isMounted) {

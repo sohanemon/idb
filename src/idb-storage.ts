@@ -121,24 +121,43 @@ export class IDBStore {
   }
 }
 
+// Singleton IDBStorage instances cache
+const storageInstances = new Map<string, IDBStorage>();
+
 /**
  * IDBStorage provides access to IndexedDB with multiple stores.
  * Main entry point for database operations.
+ * Uses singleton pattern to reuse instances for the same configuration.
  */
 export class IDBStorage {
   private config: IDBConfigValues;
   private db: IDBDatabase | null = null;
   private dbPromise: Promise<IDBDatabase> | null = null;
 
-  constructor(config?: IDBConfigValues) {
+  private constructor(config: IDBConfigValues) {
+    this.config = config;
+  }
+
+  /**
+   * Get or create a singleton IDBStorage instance for the given config.
+   */
+  static getInstance(config?: IDBConfigValues): IDBStorage {
     const defaultConfig = getGlobalConfig();
 
-    this.config = {
+    const resolvedConfig = {
       database: config?.database || defaultConfig.database,
       version:
         Math.max(1, Math.floor(config?.version || 1)) || defaultConfig.version,
       store: config?.store || defaultConfig.store,
     };
+
+    const key = `${resolvedConfig.database}:${resolvedConfig.version}:${resolvedConfig.store}`;
+
+    if (!storageInstances.has(key)) {
+      storageInstances.set(key, new IDBStorage(resolvedConfig));
+    }
+
+    return storageInstances.get(key)!;
   }
 
   /**

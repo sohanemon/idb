@@ -23,7 +23,7 @@ export interface IDBStorageOptions<T> extends Partial<IDBConfigValues> {
 /**
  * Props for the IDBConfig component.
  */
-export interface IDBConfigProps extends IDBConfigValues {
+export interface IDBConfigProps extends Partial<IDBConfigValues> {
   /** The children to render */
   children: React.ReactNode;
 }

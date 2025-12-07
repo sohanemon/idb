@@ -3,7 +3,7 @@ import { IDBConfig, IDBStorage, useIDBStorage } from '../../dist/index.js';
 
 export function App() {
   return (
-    <IDBConfig database="playground3" version={2} store="playground-store-2">
+    <IDBConfig database="playground" store="playground-store-2">
       <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
         <h1>IndexedDB Storage Playground</h1>
         <p>
@@ -302,13 +302,12 @@ function Settings() {
 }
 
 function IDBStorageUtils() {
-  const [storage] = useState(
-    () =>
-      new IDBStorage({
-        database: 'playground3',
-        version: 2,
-        store: 'utils-store',
-      }),
+  const [storage] = useState(() =>
+    IDBStorage.getInstance({
+      database: 'playground3',
+      version: 2,
+      store: 'utils-store',
+    }),
   );
   const [store, setStore] = useState<any>(null);
   const [key, setKey] = useState('test-key');
