@@ -1,10 +1,9 @@
-import { getGlobalConfig } from './config';
 import { getFromDB, openDB, removeFromDB, setInDB } from './database';
 import type { IDBConfigValues } from './types';
 
 /**
  * IDBStore provides key-value operations for a specific IndexedDB object store.
- * Inspired by idb-keyval but with store-specific operations.
+ * Inspired by idb-keyval but with store-specific operations and better error handling.
  */
 export class IDBStore {
   private db: IDBDatabase;
@@ -19,65 +18,95 @@ export class IDBStore {
    * Get a value by key
    */
   async get<T>(key: string): Promise<T | undefined> {
-    return getFromDB<T>(this.db, this.storeName, key);
+    try {
+      return await getFromDB<T>(this.db, this.storeName, key);
+    } catch (error) {
+      console.error(`Failed to get value for key "${key}":`, error);
+      throw error;
+    }
   }
 
   /**
    * Set a value for a key
    */
   async set<T>(key: string, value: T): Promise<void> {
-    return setInDB(this.db, this.storeName, key, value);
+    try {
+      await setInDB(this.db, this.storeName, key, value);
+    } catch (error) {
+      console.error(`Failed to set value for key "${key}":`, error);
+      throw error;
+    }
   }
 
   /**
    * Delete a key-value pair
    */
   async delete(key: string): Promise<void> {
-    return removeFromDB(this.db, this.storeName, key);
+    try {
+      await removeFromDB(this.db, this.storeName, key);
+    } catch (error) {
+      console.error(`Failed to delete key "${key}":`, error);
+      throw error;
+    }
   }
 
   /**
    * Get multiple values by keys
    */
   async getMany<T>(keys: string[]): Promise<(T | undefined)[]> {
-    const promises = keys.map((key) => this.get<T>(key));
-    return Promise.all(promises);
+    try {
+      const promises = keys.map((key) => this.get<T>(key));
+      return await Promise.all(promises);
+    } catch (error) {
+      console.error('Failed to get multiple values:', error);
+      throw error;
+    }
   }
 
   /**
    * Set multiple key-value pairs
    */
   async setMany<T>(entries: [string, T][]): Promise<void> {
-    const transaction = this.db.transaction([this.storeName], 'readwrite');
-    const store = transaction.objectStore(this.storeName);
+    try {
+      const transaction = this.db.transaction([this.storeName], 'readwrite');
+      const store = transaction.objectStore(this.storeName);
 
-    const promises = entries.map(([key, value]) => {
-      return new Promise<void>((resolve, reject) => {
-        const request = store.put(value, key);
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => resolve();
+      const promises = entries.map(([key, value]) => {
+        return new Promise<void>((resolve, reject) => {
+          const request = store.put(value, key);
+          request.onerror = () => reject(request.error);
+          request.onsuccess = () => resolve();
+        });
       });
-    });
 
-    await Promise.all(promises);
+      await Promise.all(promises);
+    } catch (error) {
+      console.error('Failed to set multiple values:', error);
+      throw error;
+    }
   }
 
   /**
    * Delete multiple keys
    */
   async deleteMany(keys: string[]): Promise<void> {
-    const transaction = this.db.transaction([this.storeName], 'readwrite');
-    const store = transaction.objectStore(this.storeName);
+    try {
+      const transaction = this.db.transaction([this.storeName], 'readwrite');
+      const store = transaction.objectStore(this.storeName);
 
-    const promises = keys.map((key) => {
-      return new Promise<void>((resolve, reject) => {
-        const request = store.delete(key);
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => resolve();
+      const promises = keys.map((key) => {
+        return new Promise<void>((resolve, reject) => {
+          const request = store.delete(key);
+          request.onerror = () => reject(request.error);
+          request.onsuccess = () => resolve();
+        });
       });
-    });
 
-    await Promise.all(promises);
+      await Promise.all(promises);
+    } catch (error) {
+      console.error('Failed to delete multiple keys:', error);
+      throw error;
+    }
   }
 
   /**
@@ -87,77 +116,122 @@ export class IDBStore {
     key: string,
     updater: (value: T | undefined) => T,
   ): Promise<void> {
-    const currentValue = await this.get<T>(key);
-    const newValue = updater(currentValue);
-    await this.set(key, newValue);
+    try {
+      const currentValue = await this.get<T>(key);
+      const newValue = updater(currentValue);
+      await this.set(key, newValue);
+    } catch (error) {
+      console.error(`Failed to update value for key "${key}":`, error);
+      throw error;
+    }
   }
 
   /**
    * Clear all key-value pairs in the store
    */
   async clear(): Promise<void> {
-    return new Promise((resolve, reject) => {
+    try {
       const transaction = this.db.transaction([this.storeName], 'readwrite');
       const store = transaction.objectStore(this.storeName);
       const request = store.clear();
 
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
-    });
+      await new Promise<void>((resolve, reject) => {
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve();
+      });
+    } catch (error) {
+      console.error('Failed to clear store:', error);
+      throw error;
+    }
   }
 
   /**
    * Get all keys in the store
    */
   async keys(): Promise<string[]> {
-    return new Promise((resolve, reject) => {
+    try {
       const transaction = this.db.transaction([this.storeName], 'readonly');
       const store = transaction.objectStore(this.storeName);
       const request = store.getAllKeys();
 
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve(Array.from(request.result) as string[]);
-    });
+      return await new Promise<string[]>((resolve, reject) => {
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () =>
+          resolve(Array.from(request.result) as string[]);
+      });
+    } catch (error) {
+      console.error('Failed to get keys:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all values in the store
+   */
+  async values<T>(): Promise<T[]> {
+    try {
+      const transaction = this.db.transaction([this.storeName], 'readonly');
+      const store = transaction.objectStore(this.storeName);
+      const request = store.getAll();
+
+      return await new Promise<T[]>((resolve, reject) => {
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+      });
+    } catch (error) {
+      console.error('Failed to get values:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all entries in the store
+   */
+  async entries<T>(): Promise<[string, T][]> {
+    try {
+      const transaction = this.db.transaction([this.storeName], 'readonly');
+      const store = transaction.objectStore(this.storeName);
+      const request = store.openCursor();
+
+      const entries: [string, T][] = [];
+
+      return new Promise((resolve, reject) => {
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (cursor) {
+            entries.push([cursor.key as string, cursor.value]);
+            cursor.continue();
+          } else {
+            resolve(entries);
+          }
+        };
+      });
+    } catch (error) {
+      console.error('Failed to get entries:', error);
+      throw error;
+    }
   }
 }
-
-// Singleton IDBStorage instances cache
-const storageInstances = new Map<string, IDBStorage>();
 
 /**
  * IDBStorage provides access to IndexedDB with multiple stores.
  * Main entry point for database operations.
- * Uses singleton pattern to reuse instances for the same configuration.
  */
 export class IDBStorage {
   private config: IDBConfigValues;
   private db: IDBDatabase | null = null;
   private dbPromise: Promise<IDBDatabase> | null = null;
 
-  private constructor(config: IDBConfigValues) {
-    this.config = config;
-  }
-
-  /**
-   * Get or create a singleton IDBStorage instance for the given config.
-   */
-  static getInstance(config?: IDBConfigValues): IDBStorage {
-    const defaultConfig = getGlobalConfig();
-
-    const resolvedConfig = {
-      database: config?.database || defaultConfig.database,
-      version:
-        Math.max(1, Math.floor(config?.version || 1)) || defaultConfig.version,
-      store: config?.store || defaultConfig.store,
+  constructor(config?: Partial<IDBConfigValues>) {
+    const defaultConfig: IDBConfigValues = {
+      database: 'sohanemon-idb',
+      version: 1,
+      store: 'default',
     };
 
-    const key = `${resolvedConfig.database}:${resolvedConfig.version}:${resolvedConfig.store}`;
-
-    if (!storageInstances.has(key)) {
-      storageInstances.set(key, new IDBStorage(resolvedConfig));
-    }
-
-    return storageInstances.get(key)!;
+    this.config = { ...defaultConfig, ...config };
+    this.config.version = Math.max(1, Math.floor(this.config.version));
   }
 
   /**
@@ -201,11 +275,11 @@ export class IDBStorage {
 
   /**
    * Drop/delete a specific store
+   * Note: IndexedDB doesn't support dropping stores after creation
+   * This would require a version upgrade with store deletion
+   * For now, we'll clear the store instead
    */
   async drop(storeName: string): Promise<void> {
-    // Note: IndexedDB doesn't support dropping stores after creation
-    // This would require a version upgrade with store deletion
-    // For now, we'll clear the store instead
     const store = await this.get(storeName);
     await store.clear();
   }

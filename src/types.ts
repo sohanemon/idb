@@ -27,3 +27,12 @@ export interface IDBConfigProps extends Partial<IDBConfigValues> {
   /** The children to render */
   children: React.ReactNode;
 }
+
+/**
+ * Return type of the useIDBStorage hook
+ */
+export type UseIDBStorageReturn<T> = [
+  T,
+  (value: T | ((prevState: T) => T)) => Promise<void>,
+  () => Promise<void>,
+];

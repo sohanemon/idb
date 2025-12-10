@@ -20,7 +20,7 @@ export function IDBConfig({ children, ...conf }: IDBConfigProps) {
   // Update global config when provider is used
   React.useEffect(() => {
     configureIDBStorage(conf);
-  }, [conf]);
+  }, [conf.database, conf.version, conf.store]);
 
-  return children;
+  return <>{children}</>;
 }

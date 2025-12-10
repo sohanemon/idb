@@ -1,7 +1,8 @@
 import * as React from 'react';
 import { getGlobalConfig } from './config';
+import { isIDBAvailable } from './database';
 import { IDBStorage, IDBStore } from './idb-storage';
-import type { IDBStorageOptions } from './types';
+import type { IDBStorageOptions, UseIDBStorageReturn } from './types';
 
 /**
  * Hook to persist state in IndexedDB with a clean object-based API.
@@ -12,7 +13,7 @@ import type { IDBStorageOptions } from './types';
  * @example
  * ```tsx
  * // Option 1: Using the provider (recommended)
- * <IDBConfig database="myApp" version={2} store="data">
+ * <IDBConfig database="myApp" store="data">
  *   <App />
  * </IDBConfig>
  *
@@ -40,65 +41,80 @@ import type { IDBStorageOptions } from './types';
  */
 export function useIDBStorage<T>(
   options: IDBStorageOptions<T>,
-): [
-  T,
-  (value: T | ((prevState: T) => T)) => Promise<void>,
-  () => Promise<void>,
-] {
-  const globalConfig = getGlobalConfig();
+): UseIDBStorageReturn<T> {
   const { key, defaultValue, ...opts } = options;
+  const globalConfig = getGlobalConfig();
   const config = { ...globalConfig, ...opts };
 
   // Ensure version is valid (must be positive integer)
+  config.version = Math.max(1, Math.floor(config.version || 1));
 
   const [storedValue, setStoredValue] = React.useState<T>(defaultValue);
-  const [storeInstance, setStoreInstance] = React.useState<IDBStore | null>(
-    null,
-  );
+  const [error, setError] = React.useState<Error | null>(null);
+  const [isInitialized, setIsInitialized] = React.useState(false);
   const storageRef = React.useRef<IDBStorage | null>(null);
+  const storeRef = React.useRef<IDBStore | null>(null);
+  const pendingUpdatesRef = React.useRef<Array<() => Promise<void>>>([]);
 
+  // Load initial value
   React.useEffect(() => {
     let isMounted = true;
 
-    const initStorage = async () => {
+    const loadInitialValue = async () => {
       try {
-        // Close existing storage connection if it exists
+        if (!isIDBAvailable()) {
+          console.warn('IndexedDB is not available, using default values only');
+          return;
+        }
+
+        setError(null);
+
+        // Close existing storage connection if config changed
         if (storageRef.current) {
           storageRef.current.close();
           storageRef.current = null;
+          storeRef.current = null;
         }
 
-        const storage = IDBStorage.getInstance(config);
-        const storeInst = await storage.get(config.store);
+        const storage = new IDBStorage(config);
+        const store = await storage.get(config.store);
 
+        if (!isMounted) return;
+
+        storageRef.current = storage;
+        storeRef.current = store;
+
+        // Load the initial value
+        const value = await store.get<T>(key);
+        if (isMounted && value !== undefined) {
+          setStoredValue(value);
+        }
+
+        // Mark as initialized and process any pending updates
         if (isMounted) {
-          storageRef.current = storage;
-          setStoreInstance(storeInst);
-
-          // Load the initial value
-          try {
-            const value = await storeInst.get<T>(key);
-            if (isMounted && value !== undefined) {
-              setStoredValue(value);
-            }
-          } catch (error) {
-            // Only log if it's not an InvalidStateError (which happens when db is closed)
-            if (
-              !(
-                error instanceof DOMException &&
-                error.name === 'InvalidStateError'
-              )
-            ) {
-              console.error('Failed to load value from IndexedDB:', error);
-            }
+          setIsInitialized(true);
+          // Process pending updates
+          const pendingUpdates = pendingUpdatesRef.current;
+          pendingUpdatesRef.current = [];
+          for (const update of pendingUpdates) {
+            update().catch((err) => {
+              console.error('Failed to process pending update:', err);
+            });
           }
         }
-      } catch (error) {
-        console.error('Failed to initialize IDBStorage:', error);
+      } catch (err) {
+        if (isMounted) {
+          setError(
+            err instanceof Error
+              ? err
+              : new Error('Failed to load from IndexedDB'),
+          );
+          console.error('Failed to initialize IDBStorage:', err);
+        }
       }
     };
 
-    initStorage();
+    loadInitialValue();
 
     return () => {
       isMounted = false;
@@ -106,54 +122,94 @@ export function useIDBStorage<T>(
       if (storageRef.current) {
         storageRef.current.close();
         storageRef.current = null;
+        storeRef.current = null;
       }
     };
-  }, [config, key]);
+  }, [config.database, config.version, config.store, key]);
 
   const updateStoredValue = React.useCallback(
     async (valueOrFn: T | ((prevState: T) => T)) => {
+      if (error) {
+        console.warn('Cannot update value due to previous error:', error);
+        return;
+      }
+
       const newValue =
         typeof valueOrFn === 'function'
           ? (valueOrFn as (prevState: T) => T)(storedValue)
           : valueOrFn;
 
+      // Update local state immediately for better UX
       setStoredValue(newValue);
 
-      if (storeInstance) {
-        try {
-          await storeInstance.set(key, newValue);
-        } catch (error) {
-          // Only log if it's not an InvalidStateError
-          if (
-            !(
-              error instanceof DOMException &&
-              error.name === 'InvalidStateError'
-            )
-          ) {
-            console.error('Failed to save value to IndexedDB:', error);
-          }
+      // Save to IndexedDB
+      const saveToIDB = async () => {
+        if (storeRef.current) {
+          await storeRef.current.set(key, newValue);
+        } else {
+          throw new Error('Store not initialized');
         }
+      };
+
+      if (isInitialized) {
+        try {
+          await saveToIDB();
+        } catch (err) {
+          // Revert local state on error
+          setStoredValue(storedValue);
+          setError(
+            err instanceof Error
+              ? err
+              : new Error('Failed to save to IndexedDB'),
+          );
+          console.error('Failed to save value to IndexedDB:', err);
+          throw err;
+        }
+      } else {
+        // Queue the update for when initialization completes
+        pendingUpdatesRef.current.push(saveToIDB);
       }
     },
-    [storeInstance, key, storedValue],
+    [storedValue, key, error, isInitialized],
   );
 
   const removeStoredValue = React.useCallback(async () => {
+    if (error) {
+      console.warn('Cannot remove value due to previous error:', error);
+      return;
+    }
+
+    // Update local state immediately
     setStoredValue(defaultValue);
 
-    if (storeInstance) {
-      try {
-        await storeInstance.delete(key);
-      } catch (error) {
-        // Only log if it's not an InvalidStateError
-        if (
-          !(error instanceof DOMException && error.name === 'InvalidStateError')
-        ) {
-          console.error('Failed to remove value from IndexedDB:', error);
-        }
+    // Remove from IndexedDB
+    const removeFromIDB = async () => {
+      if (storeRef.current) {
+        await storeRef.current.delete(key);
+      } else {
+        throw new Error('Store not initialized');
       }
+    };
+
+    if (isInitialized) {
+      try {
+        await removeFromIDB();
+      } catch (err) {
+        // Revert local state on error
+        setStoredValue(storedValue);
+        setError(
+          err instanceof Error
+            ? err
+            : new Error('Failed to remove from IndexedDB'),
+        );
+        console.error('Failed to remove value from IndexedDB:', err);
+        throw err;
+      }
+    } else {
+      // Queue the removal for when initialization completes
+      pendingUpdatesRef.current.push(removeFromIDB);
     }
-  }, [storeInstance, key, defaultValue]);
+  }, [storedValue, key, defaultValue, error, isInitialized]);
 
   return [storedValue, updateStoredValue, removeStoredValue];
 }

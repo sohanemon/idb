@@ -2,8 +2,16 @@
 const dbConnections = new Map<string, Promise<IDBDatabase>>();
 
 /**
- * Opens an IndexedDB database and creates a store if it doesn't exist.
- * Uses singleton pattern to reuse connections for the same database.
+ * Check if IndexedDB is available
+ */
+export function isIDBAvailable(): boolean {
+  return typeof indexedDB !== 'undefined';
+}
+
+/**
+ * Opens an IndexedDB database and ensures the specified store exists.
+ * Uses singleton pattern to reuse connections for the same database and version.
+ * Automatically increments version if the store doesn't exist.
  */
 export function openDB(
   dbName: string,
@@ -11,17 +19,35 @@ export function openDB(
   version = 1,
   onVersionChange?: () => void,
 ): Promise<IDBDatabase> {
+  if (!isIDBAvailable()) {
+    throw new Error('IndexedDB is not available in this environment');
+  }
   const key = `${dbName}:${version}:${storeName}`;
 
   if (dbConnections.has(key)) {
     return dbConnections.get(key)!;
   }
 
-  const dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
+  const dbPromise = _openDB(dbName, storeName, version, onVersionChange);
+  dbConnections.set(key, dbPromise);
+
+  return dbPromise;
+}
+
+/**
+ * Internal function to open database with proper store handling
+ */
+function _openDB(
+  dbName: string,
+  storeName: string,
+  version: number,
+  onVersionChange?: () => void,
+): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
     const request = indexedDB.open(dbName, version);
 
     request.onerror = () => {
-      dbConnections.delete(key);
+      dbConnections.delete(`${dbName}:${version}:${storeName}`);
       reject(request.error);
     };
 
@@ -35,30 +61,30 @@ export function openDB(
     request.onsuccess = () => {
       const db = request.result;
 
-      // Check if the store exists; if not, close and reopen with higher version
+      // Check if store exists, if not, we need to upgrade
       if (!db.objectStoreNames.contains(storeName)) {
         db.close();
-        dbConnections.delete(key);
-        // Recursively open with higher version
-        openDB(dbName, storeName, version + 1, onVersionChange)
-          .then(resolve)
-          .catch(reject);
+        dbConnections.delete(`${dbName}:${version}:${storeName}`);
+        // Try with higher version
+        resolve(_openDB(dbName, storeName, version + 1, onVersionChange));
         return;
       }
 
-      // prevent forced-close issues
+      // Handle version changes
       db.onversionchange = () => {
         db.close();
-        dbConnections.delete(key);
+        // Clear all connections for this db
+        for (const [key] of dbConnections) {
+          if (key.startsWith(`${dbName}:`)) {
+            dbConnections.delete(key);
+          }
+        }
         onVersionChange?.();
       };
 
       resolve(db);
     };
   });
-
-  dbConnections.set(key, dbPromise);
-  return dbPromise;
 }
 
 /**
@@ -70,48 +96,60 @@ export function getFromDB<T>(
   key: string,
 ): Promise<T | undefined> {
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction([storeName], 'readonly');
-    const store = transaction.objectStore(storeName);
-    const request = store.get(key);
+    try {
+      const transaction = db.transaction([storeName], 'readonly');
+      const store = transaction.objectStore(storeName);
+      const request = store.get(key);
 
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+    } catch (error) {
+      reject(error);
+    }
   });
 }
 
 /**
  * Sets a value in IndexedDB.
  */
-export const setInDB = (
+export function setInDB(
   db: IDBDatabase,
   storeName: string,
   key: string,
   value: any,
-): Promise<void> => {
+): Promise<void> {
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction([storeName], 'readwrite');
-    const store = transaction.objectStore(storeName);
-    const request = store.put(value, key);
+    try {
+      const transaction = db.transaction([storeName], 'readwrite');
+      const store = transaction.objectStore(storeName);
+      const request = store.put(value, key);
 
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve();
+    } catch (error) {
+      reject(error);
+    }
   });
-};
+}
 
 /**
  * Removes a value from IndexedDB.
  */
-export const removeFromDB = (
+export function removeFromDB(
   db: IDBDatabase,
   storeName: string,
   key: string,
-): Promise<void> => {
+): Promise<void> {
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction([storeName], 'readwrite');
-    const store = transaction.objectStore(storeName);
-    const request = store.delete(key);
+    try {
+      const transaction = db.transaction([storeName], 'readwrite');
+      const store = transaction.objectStore(storeName);
+      const request = store.delete(key);
 
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve();
+    } catch (error) {
+      reject(error);
+    }
   });
-};
+}

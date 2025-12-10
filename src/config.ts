@@ -12,7 +12,7 @@ let globalConfig: IDBConfigValues = {
 /**
  * Configure global defaults for IDBStorage.
  */
-export function configureIDBStorage(config: Partial<IDBConfigValues>) {
+export function configureIDBStorage(config: Partial<IDBConfigValues>): void {
   globalConfig = { ...globalConfig, ...config };
 }
 
