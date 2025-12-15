@@ -1,10 +1,25 @@
+'use client';
+
 import * as React from 'react';
-import { configureIDBStorage } from './config';
-import type { IDBConfigProps } from './types';
+import { getGlobalConfig } from './config';
+import type { IDBConfigProps, IDBConfigValues } from './types';
+
+/**
+ * Context for IDB configuration
+ */
+const IDBConfigContext = React.createContext<IDBConfigValues | null>(null);
+
+/**
+ * Hook to get the current IDB config from context or global fallback
+ */
+export function useIDBConfig(): IDBConfigValues {
+  const contextConfig = React.useContext(IDBConfigContext);
+  return contextConfig || getGlobalConfig();
+}
 
 /**
  * Provider component to configure default IDBStorage settings.
- * This is optional - if not used, the hook will fall back to global config.
+ * This passes config to children via context instead of global state.
  *
  * @param props - Configuration props containing database, store, and children
  * @returns The provider component wrapping children
@@ -17,10 +32,15 @@ import type { IDBConfigProps } from './types';
  * ```
  */
 export function IDBConfig({ children, ...conf }: IDBConfigProps) {
-  // Update global config when provider is used
-  React.useEffect(() => {
-    configureIDBStorage(conf);
-  }, [conf.database, conf.version, conf.store]);
+  const config: IDBConfigValues = {
+    database: conf.database || 'sohanemon-idb',
+    version: conf.version || 1,
+    store: conf.store || 'default',
+  };
 
-  return <>{children}</>;
+  return (
+    <IDBConfigContext.Provider value={config}>
+      {children}
+    </IDBConfigContext.Provider>
+  );
 }

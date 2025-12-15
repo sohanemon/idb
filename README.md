@@ -1,5 +1,4 @@
-# sohanemon/idb
-
+# React IDB Storage 
 ![npm version](https://img.shields.io/npm/v/use-idb-storage)
 ![npm downloads](https://img.shields.io/npm/dm/use-idb-storage)
 ![License](https://img.shields.io/npm/l/use-idb-storage)

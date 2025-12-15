@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { getGlobalConfig } from './config';
+import { useIDBConfig } from './idb-context';
 import { isIDBAvailable } from './database';
 import { IDBStorage, IDBStore } from './idb-storage';
 import type { IDBStorageOptions, UseIDBStorageReturn } from './types';
@@ -43,8 +43,8 @@ export function useIDBStorage<T>(
   options: IDBStorageOptions<T>,
 ): UseIDBStorageReturn<T> {
   const { key, defaultValue, ...opts } = options;
-  const globalConfig = getGlobalConfig();
-  const config = { ...globalConfig, ...opts };
+  const contextConfig = useIDBConfig();
+  const config = { ...contextConfig, ...opts };
 
   // Ensure version is valid (must be positive integer)
   config.version = Math.max(1, Math.floor(config.version || 1));
@@ -56,8 +56,13 @@ export function useIDBStorage<T>(
   const storeRef = React.useRef<IDBStore | null>(null);
   const pendingUpdatesRef = React.useRef<Array<() => Promise<void>>>([]);
 
-  // Load initial value
+  // Load initial value (client-side only to prevent hydration mismatch)
   React.useEffect(() => {
+    // Only run on client-side
+    if (typeof window === 'undefined') {
+      return;
+    }
+
     let isMounted = true;
 
     const loadInitialValue = async () => {
