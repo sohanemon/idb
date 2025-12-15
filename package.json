@@ -19,6 +19,7 @@
     "test:list": "vitest list",
     "test:log": "vitest run --reporter verbose",
     "test:ui": "vitest --ui",
+    "bench": "vitest bench",
     "build:playground": "vite build --config playground/vite.config.ts",
     "playground": "tsdown && vite build --config playground/vite.config.ts && vite --config playground/vite.config.ts",
     "check": "biome check .",
