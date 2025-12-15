@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { useIDBConfig } from './idb-context';
 import { isIDBAvailable } from './database';
+import { useIDBConfig } from './idb-context';
 import { IDBStorage, IDBStore } from './idb-storage';
 import type { IDBStorageOptions, UseIDBStorageReturn } from './types';
 
@@ -139,15 +139,16 @@ export function useIDBStorage<T>(
         return;
       }
 
+      const previousValue = storedValue;
       const newValue =
         typeof valueOrFn === 'function'
           ? (valueOrFn as (prevState: T) => T)(storedValue)
           : valueOrFn;
 
-      // Update local state immediately for better UX
+      // Update local state immediately for same performance as useState
       setStoredValue(newValue);
 
-      // Save to IndexedDB
+      // Save to IndexedDB in background
       const saveToIDB = async () => {
         if (storeRef.current) {
           await storeRef.current.set(key, newValue);
@@ -157,22 +158,34 @@ export function useIDBStorage<T>(
       };
 
       if (isInitialized) {
-        try {
-          await saveToIDB();
-        } catch (err) {
+        // Save in background, handle errors asynchronously
+        saveToIDB().catch((err) => {
           // Revert local state on error
-          setStoredValue(storedValue);
+          setStoredValue(previousValue);
           setError(
             err instanceof Error
               ? err
               : new Error('Failed to save to IndexedDB'),
           );
           console.error('Failed to save value to IndexedDB:', err);
-          throw err;
-        }
+        });
       } else {
         // Queue the update for when initialization completes
-        pendingUpdatesRef.current.push(saveToIDB);
+        pendingUpdatesRef.current.push(async () => {
+          try {
+            await saveToIDB();
+          } catch (err) {
+            // Revert local state on error
+            setStoredValue(previousValue);
+            setError(
+              err instanceof Error
+                ? err
+                : new Error('Failed to save to IndexedDB'),
+            );
+            console.error('Failed to save value to IndexedDB:', err);
+            throw err;
+          }
+        });
       }
     },
     [storedValue, key, error, isInitialized],
@@ -184,10 +197,12 @@ export function useIDBStorage<T>(
       return;
     }
 
+    const previousValue = storedValue;
+
     // Update local state immediately
     setStoredValue(defaultValue);
 
-    // Remove from IndexedDB
+    // Remove from IndexedDB in background
     const removeFromIDB = async () => {
       if (storeRef.current) {
         await storeRef.current.delete(key);
@@ -197,22 +212,34 @@ export function useIDBStorage<T>(
     };
 
     if (isInitialized) {
-      try {
-        await removeFromIDB();
-      } catch (err) {
+      // Remove in background, handle errors asynchronously
+      removeFromIDB().catch((err) => {
         // Revert local state on error
-        setStoredValue(storedValue);
+        setStoredValue(previousValue);
         setError(
           err instanceof Error
             ? err
             : new Error('Failed to remove from IndexedDB'),
         );
         console.error('Failed to remove value from IndexedDB:', err);
-        throw err;
-      }
+      });
     } else {
       // Queue the removal for when initialization completes
-      pendingUpdatesRef.current.push(removeFromIDB);
+      pendingUpdatesRef.current.push(async () => {
+        try {
+          await removeFromIDB();
+        } catch (err) {
+          // Revert local state on error
+          setStoredValue(previousValue);
+          setError(
+            err instanceof Error
+              ? err
+              : new Error('Failed to remove from IndexedDB'),
+          );
+          console.error('Failed to remove value from IndexedDB:', err);
+          throw err;
+        }
+      });
     }
   }, [storedValue, key, defaultValue, error, isInitialized]);
 
