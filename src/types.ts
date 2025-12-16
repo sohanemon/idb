@@ -33,6 +33,6 @@ export interface IDBConfigProps extends Partial<IDBConfigValues> {
  */
 export type UseIDBStorageReturn<T> = [
   T,
-  (value: T | ((prevState: T) => T)) => Promise<void>,
-  () => Promise<void>,
+  (value: T | ((prevState: T) => T)) => void,
+  () => void,
 ];

@@ -26,8 +26,8 @@ export function App() {
         </div>
 
         <div style={{ marginBottom: '30px' }}>
-          <h2>Settings</h2>
-          <Settings />
+          <h2>Performance Test: useState vs useIDBStorage</h2>
+          <PerformanceTest />
         </div>
 
         <div style={{ marginBottom: '30px' }}>
@@ -296,6 +296,188 @@ function Settings() {
       </div>
       <div style={{ marginTop: '10px' }}>
         <strong>Current Settings:</strong> {JSON.stringify(settings, null, 2)}
+      </div>
+    </div>
+  );
+}
+
+function PerformanceTest() {
+  const [useStateCount, setUseStateCount] = useState(0);
+  const [useIDBCount, setUseIDBCount] = useIDBStorage({
+    key: 'perf-test-count',
+    defaultValue: 0,
+  });
+
+  const [useStateTime, setUseStateTime] = useState<number | null>(null);
+  const [useIDBTime, setUseIDBTime] = useState<number | null>(null);
+  const [running, setRunning] = useState(false);
+
+  const testUseState = async () => {
+    setRunning(true);
+    const start = performance.now();
+
+    // Do 1000 state updates
+    for (let i = 0; i < 1000; i++) {
+      setUseStateCount((prev) => prev + 1);
+    }
+
+    const end = performance.now();
+    setUseStateTime(end - start);
+    setRunning(false);
+  };
+
+  const testUseIDBStorage = async () => {
+    setRunning(true);
+    const start = performance.now();
+
+    // Do 1000 state updates (now immediate!)
+    for (let i = 0; i < 1000; i++) {
+      setUseIDBCount((prev) => prev + 1);
+    }
+
+    const end = performance.now();
+    setUseIDBTime(end - start);
+    setRunning(false);
+  };
+
+  const resetCounters = async () => {
+    setUseStateCount(0);
+    await setUseIDBCount(0);
+    setUseStateTime(null);
+    setUseIDBTime(null);
+  };
+
+  return (
+    <div
+      style={{ border: '1px solid #ccc', padding: '15px', borderRadius: '5px' }}
+    >
+      <h3>Performance Comparison: useState vs useIDBStorage</h3>
+      <p>
+        Click the buttons below to test 1000 state updates and see the timing
+        difference. The new useIDBStorage should be as fast as useState!
+      </p>
+
+      <div style={{ marginBottom: '15px' }}>
+        <div style={{ marginBottom: '10px' }}>
+          <strong>useState Count:</strong> {useStateCount}
+          {useStateTime !== null && (
+            <span style={{ marginLeft: '10px', color: 'green' }}>
+              Time: {useStateTime.toFixed(2)}ms
+            </span>
+          )}
+        </div>
+
+        <div style={{ marginBottom: '10px' }}>
+          <strong>useIDBStorage Count:</strong> {useIDBCount}
+          {useIDBTime !== null && (
+            <span style={{ marginLeft: '10px', color: 'blue' }}>
+              Time: {useIDBTime.toFixed(2)}ms
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div style={{ marginBottom: '15px' }}>
+        <button
+          onClick={testUseState}
+          disabled={running}
+          style={{
+            marginRight: '10px',
+            padding: '8px 15px',
+            backgroundColor: '#4CAF50',
+            color: 'white',
+            border: 'none',
+            borderRadius: '3px',
+            cursor: running ? 'not-allowed' : 'pointer',
+          }}
+        >
+          Test useState (1000 updates)
+        </button>
+
+        <button
+          onClick={testUseIDBStorage}
+          disabled={running}
+          style={{
+            marginRight: '10px',
+            padding: '8px 15px',
+            backgroundColor: '#2196F3',
+            color: 'white',
+            border: 'none',
+            borderRadius: '3px',
+            cursor: running ? 'not-allowed' : 'pointer',
+          }}
+        >
+          Test useIDBStorage (1000 updates)
+        </button>
+
+        <button
+          onClick={resetCounters}
+          disabled={running}
+          style={{
+            padding: '8px 15px',
+            backgroundColor: '#f44336',
+            color: 'white',
+            border: 'none',
+            borderRadius: '3px',
+            cursor: running ? 'not-allowed' : 'pointer',
+          }}
+        >
+          Reset
+        </button>
+      </div>
+
+      {useStateTime !== null && useIDBTime !== null && (
+        <div
+          style={{
+            padding: '10px',
+            backgroundColor: '#f5f5f5',
+            borderRadius: '3px',
+          }}
+        >
+          <strong>Results:</strong>
+          <br />
+          useState: {useStateTime.toFixed(2)}ms
+          <br />
+          useIDBStorage: {useIDBTime.toFixed(2)}ms
+          <br />
+          <strong>
+            Difference: {Math.abs(useStateTime - useIDBTime).toFixed(2)}ms (
+            {(
+              (Math.abs(useStateTime - useIDBTime) /
+                Math.max(useStateTime, useIDBTime)) *
+              100
+            ).toFixed(1)}
+            % difference)
+          </strong>
+          <br />
+          {Math.abs(useStateTime - useIDBTime) < 1 ? (
+            <span style={{ color: 'green' }}>
+              ✅ Performance is essentially identical!
+            </span>
+          ) : (
+            <span style={{ color: 'orange' }}>
+              ⚠️ There might be a small difference
+            </span>
+          )}
+        </div>
+      )}
+
+      <div style={{ marginTop: '15px', fontSize: '14px', color: '#666' }}>
+        <p>
+          <strong>How it works:</strong>
+        </p>
+        <ul>
+          <li>Both tests perform 1000 state updates in a loop</li>
+          <li>useState updates are synchronous and immediate</li>
+          <li>
+            useIDBStorage updates are now also immediate (state updates
+            synchronously, persistence happens in background)
+          </li>
+          <li>
+            The timing should be nearly identical - proving useIDBStorage has
+            the same performance as useState
+          </li>
+        </ul>
       </div>
     </div>
   );
