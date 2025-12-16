@@ -15,6 +15,26 @@ A modern, developer-friendly IndexedDB library for React and vanilla JavaScript 
 - 🔧 **TypeScript**: Full type safety
 - 🎯 **Promise-based**: Modern async/await support
 
+## Performance
+
+useIDBStorage offers near-native performance with minimal overhead. Benchmark results show only 1.5ms difference compared to useState for 400 forced unbatched updates:
+
+```json
+{
+  "useState": {
+    "renders": 400,
+    "time": 3317.9
+  },
+  "useIDBStorage": {
+    "renders": 400,
+    "time": 3316.4
+  },
+  "differenceMs": 1.5
+}
+```
+
+For detailed performance testing guide, see [PERFORMANCE.md](./PERFORMANCE.md).
+
 ## Installation
 
 ```bash

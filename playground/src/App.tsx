@@ -1,9 +1,9 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { IDBConfig, IDBStorage, useIDBStorage } from '../../dist/index.js';
+import { IDBConfig, IDBStorage, useIDBStorage } from '../../src';
 
 export function App() {
   return (
-    <IDBConfig database="playground" store="playground-store-2" version={2}>
+    <IDBConfig database="playground" store="play" version={2}>
       <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
         <h1>IndexedDB Storage Playground</h1>
         <p>
@@ -46,7 +46,8 @@ export function App() {
 
 function UserProfile() {
   const [user, setUser, removeUser] = useIDBStorage({
-    key: 'user-profile',
+    store: 'user',
+    key: 'demo-user',
     defaultValue: { name: '', email: '', age: 0 },
   });
 
@@ -117,7 +118,8 @@ function UserProfile() {
 
 function Counter() {
   const [count, setCount] = useIDBStorage({
-    key: 'counter',
+    store: 'counter',
+    key: 'count',
     defaultValue: 0,
   });
 
@@ -163,7 +165,7 @@ function Counter() {
 
 function TodoList() {
   const [todos, setTodos] = useIDBStorage({
-    key: 'todos',
+    key: 'todo',
     defaultValue: [] as string[],
   });
 
@@ -341,6 +343,7 @@ async function runForcedUpdates(
 export function PerformanceTest() {
   const [useStateCount, setUseStateCount] = useState(0);
   const [useIDBCount, setUseIDBCount] = useIDBStorage({
+    store: 'perf-test',
     key: 'perf-test-count',
     defaultValue: 0,
   });
@@ -433,8 +436,7 @@ function IDBStorageUtils() {
   const [storage] = useState(
     () =>
       new IDBStorage({
-        database: 'playground3',
-        version: 2,
+        database: 'playground-custom',
         store: 'utils-store',
       }),
   );
