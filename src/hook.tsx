@@ -79,9 +79,15 @@ export function useIDBStorage<T>(
   );
   const store = opts.store || contextConfig.store;
 
-  const [storedValue, setStoredValue] = React.useState<T>(defaultValue);
-  const [error, setError] = React.useState<Error | null>(null);
-  const [lastUpdated, setLastUpdated] = React.useState<Date | null>(null);
+  const [state, setState] = React.useState<{
+    value: T;
+    error: Error | null;
+    lastUpdated: Date | null;
+  }>({
+    value: defaultValue,
+    error: null,
+    lastUpdated: null,
+  });
 
   const isInitializedRef = React.useRef(false);
   const storageRef = React.useRef<IDBStorage | null>(null);
@@ -91,6 +97,7 @@ export function useIDBStorage<T>(
   const pendingValueRef = React.useRef<T | null>(null);
   const hasLoadedRef = React.useRef(false);
   const initialValueRef = React.useRef<T | null>(null);
+  const isFromIDBRef = React.useRef(false);
 
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -99,7 +106,7 @@ export function useIDBStorage<T>(
 
     const loadInitialValue = async () => {
       try {
-        setError(null);
+        // error is set in setState
 
         if (!isIDBAvailable()) {
           console.warn('IndexedDB is not available, using default values only');
@@ -123,20 +130,23 @@ export function useIDBStorage<T>(
 
         const value = await storeInstance.get<T>(key);
         if (isMounted) {
-          if (value !== undefined) {
-            setStoredValue(value);
-            initialValueRef.current = value;
-            setLastUpdated(new Date());
-          } else {
-            initialValueRef.current = defaultValue;
-          }
+          isFromIDBRef.current = true;
+          setState((prev) => ({
+            ...prev,
+            value: value !== undefined ? value : defaultValue,
+            lastUpdated: new Date(),
+          }));
+          initialValueRef.current = value !== undefined ? value : defaultValue;
         }
 
         isInitializedRef.current = true;
         hasLoadedRef.current = true;
       } catch (err) {
         console.error('Failed to initialize IDBStorage:', err);
-        setError(err instanceof Error ? err : new Error(String(err)));
+        setState((prev) => ({
+          ...prev,
+          error: err instanceof Error ? err : new Error(String(err)),
+        }));
         initialValueRef.current = defaultValue;
         isInitializedRef.current = true;
         hasLoadedRef.current = true;
@@ -191,12 +201,14 @@ export function useIDBStorage<T>(
           storeRef.current
             .set(key, valueToSave)
             .then(() => {
-              setLastUpdated(new Date());
               initialValueRef.current = valueToSave;
             })
             .catch((err) => {
               console.error('Failed to save value to IndexedDB:', err);
-              setError(err instanceof Error ? err : new Error(String(err)));
+              setState((prev) => ({
+                ...prev,
+                error: err instanceof Error ? err : new Error(String(err)),
+              }));
             });
         }
       }, 0); // Use 0 for next tick, or 50-100 for more aggressive batching
@@ -204,46 +216,65 @@ export function useIDBStorage<T>(
     [key],
   );
 
+  // Save to IDB when value changes (after renders)
+  React.useEffect(() => {
+    if (
+      !isInitializedRef.current ||
+      !hasLoadedRef.current ||
+      isFromIDBRef.current
+    ) {
+      isFromIDBRef.current = false;
+      return;
+    }
+
+    saveToIDB(state.value);
+  }, [state.value, saveToIDB]);
+
   const updateStoredValue = React.useCallback(
     (valueOrFn: T | ((prevState: T) => T)) => {
-      setStoredValue((prev) => {
+      setState((prev) => {
         const newValue =
           typeof valueOrFn === 'function'
-            ? (valueOrFn as (prevState: T) => T)(prev)
+            ? (valueOrFn as (prevState: T) => T)(prev.value)
             : valueOrFn;
 
-        saveToIDB(newValue);
-
-        return newValue;
+        return {
+          ...prev,
+          value: newValue,
+          lastUpdated: new Date(),
+        };
       });
     },
-    [saveToIDB],
+    [],
   );
 
   const removeStoredValue = React.useCallback(() => {
-    setStoredValue(defaultValue);
-    setLastUpdated(null);
+    setState((prev) => ({
+      ...prev,
+      value: defaultValue,
+      lastUpdated: null,
+    }));
     initialValueRef.current = defaultValue;
-    saveToIDB(defaultValue);
-  }, [defaultValue, saveToIDB]);
+  }, [defaultValue]);
 
   const refresh = React.useCallback(async () => {
     if (!isIDBAvailable() || !storeRef.current) return;
 
     try {
-      setError(null);
       const value = await storeRef.current.get<T>(key);
-      if (value !== undefined) {
-        setStoredValue(value);
-        initialValueRef.current = value;
-        setLastUpdated(new Date());
-      } else {
-        setStoredValue(defaultValue);
-        initialValueRef.current = defaultValue;
-        setLastUpdated(null);
-      }
+      isFromIDBRef.current = true;
+      setState((prev) => ({
+        ...prev,
+        value: value !== undefined ? value : defaultValue,
+        lastUpdated: value !== undefined ? new Date() : null,
+        error: null,
+      }));
+      initialValueRef.current = value !== undefined ? value : defaultValue;
     } catch (err) {
-      setError(err instanceof Error ? err : new Error(String(err)));
+      setState((prev) => ({
+        ...prev,
+        error: err instanceof Error ? err : new Error(String(err)),
+      }));
     }
   }, [key, defaultValue]);
 
@@ -260,22 +291,22 @@ export function useIDBStorage<T>(
 
   return Object.assign(
     {
-      0: storedValue,
+      0: state.value,
       1: updateStoredValue,
       2: removeStoredValue,
-      data: storedValue,
+      data: state.value,
       update,
       reset,
       loading: !hasLoadedRef.current,
       persisted: hasLoadedRef.current,
-      error,
-      lastUpdated,
+      error: state.error,
+      lastUpdated: state.lastUpdated,
       refresh,
       length: 3 as const,
     },
     {
       [Symbol.iterator]: function* () {
-        yield storedValue;
+        yield state.value;
         yield updateStoredValue;
         yield removeStoredValue;
       },

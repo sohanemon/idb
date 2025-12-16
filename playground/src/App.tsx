@@ -342,9 +342,10 @@ function useCommitTimer() {
 async function runForcedUpdates(
   updates: number,
   setFn: React.Dispatch<React.SetStateAction<number>>,
+  promise: boolean,
 ) {
   for (let i = 0; i < updates; i++) {
-    await new Promise(requestAnimationFrame);
+    if (promise) await new Promise(requestAnimationFrame);
     setFn((v) => v + 1);
   }
 }
@@ -366,18 +367,18 @@ export function PerformanceTest() {
 
   const UPDATES = 200;
 
-  const testUseState = async () => {
+  const testUseState = async (promise: boolean) => {
     setRunning(true);
     stateTimer.begin();
-    await runForcedUpdates(UPDATES, setUseStateCount);
+    await runForcedUpdates(UPDATES, setUseStateCount, promise);
     setStateResult(stateTimer.end());
     setRunning(false);
   };
 
-  const testUseIDBStorage = async () => {
+  const testUseIDBStorage = async (promise: boolean) => {
     setRunning(true);
     idbTimer.begin();
-    await runForcedUpdates(UPDATES, setUseIDBCount);
+    await runForcedUpdates(UPDATES, setUseIDBCount, promise);
     setIdbResult(idbTimer.end());
     setRunning(false);
   };
@@ -415,10 +416,16 @@ export function PerformanceTest() {
         )}
       </div>
       <br />
-      <button onClick={testUseState} disabled={running}>
+      <button onClick={() => testUseState(true)} disabled={running}>
+        Test useState ({UPDATES} updates + Promise)
+      </button>{' '}
+      <button onClick={() => testUseIDBStorage(true)} disabled={running}>
+        Test useIDBStorage ({UPDATES} updates + Promise)
+      </button>{' '}
+      <button onClick={() => testUseState(false)} disabled={running}>
         Test useState ({UPDATES} updates)
       </button>{' '}
-      <button onClick={testUseIDBStorage} disabled={running}>
+      <button onClick={() => testUseIDBStorage(false)} disabled={running}>
         Test useIDBStorage ({UPDATES} updates)
       </button>{' '}
       <button onClick={resetCounters} disabled={running}>
