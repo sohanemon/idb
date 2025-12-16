@@ -32,6 +32,7 @@ describe('useIDBStorage', () => {
       );
 
       expect(result.current[0]).toEqual({ value: 'default' });
+      expect(result.current.data).toEqual({ value: 'default' });
     });
 
     it('should accept custom database and store names', () => {
@@ -90,6 +91,25 @@ describe('useIDBStorage', () => {
       );
 
       expect(result.current[0]).toBeNull();
+    });
+
+    it('should support object destructuring', () => {
+      const { result } = renderHook(() =>
+        useIDBStorage({
+          key: 'object-destructure-key',
+          defaultValue: 'object-value',
+        }),
+      );
+
+      expect(result.current.data).toBe('object-value');
+      expect(result.current.update).toBeInstanceOf(Function);
+      expect(result.current.reset).toBeInstanceOf(Function);
+      expect(result.current.length).toBe(3);
+      expect(result.current.loading).toBe(true); // Initially loading
+      expect(result.current.persisted).toBe(false); // Not yet persisted
+      expect(result.current.error).toBeNull();
+      expect(result.current.lastUpdated).toBeNull();
+      expect(result.current.refresh).toBeInstanceOf(Function);
     });
   });
 

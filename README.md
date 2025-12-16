@@ -1,39 +1,25 @@
-# React IDB Storage 
+# useIDBStorage
+
 ![npm version](https://img.shields.io/npm/v/use-idb-storage)
 ![npm downloads](https://img.shields.io/npm/dm/use-idb-storage)
 ![License](https://img.shields.io/npm/l/use-idb-storage)
 ![Tests](https://github.com/sohanemon/idb/actions/workflows/test.yml/badge.svg)
 
-A modern, developer-friendly IndexedDB library for React and vanilla JavaScript with both hook-based and class-based APIs.
-
-## Features
-
-- 🚀 **Simple API**: Easy-to-use hooks and classes
-- 🔄 **Reactive**: React hooks with automatic re-renders
-- 🏪 **Multi-store**: Support for multiple object stores
-- 📦 **Batch operations**: Efficient bulk operations
-- 🔧 **TypeScript**: Full type safety
-- 🎯 **Promise-based**: Modern async/await support
+A React hook for IndexedDB state management with automatic persistence, similar to `useState` but with data persistence across sessions.
 
 ## Performance
 
-useIDBStorage offers near-native performance with minimal overhead. Benchmark results show only 1.5ms difference compared to useState for 400 forced unbatched updates:
+Near-native performance with minimal overhead. Benchmark shows only 1.5ms difference vs `useState` for 400 forced updates:
 
 ```json
 {
-  "useState": {
-    "renders": 400,
-    "time": 3317.9
-  },
-  "useIDBStorage": {
-    "renders": 400,
-    "time": 3316.4
-  },
+  "useState": { "renders": 400, "time": 3317.9 },
+  "useIDBStorage": { "renders": 400, "time": 3316.4 },
   "differenceMs": 1.5
 }
 ```
 
-For detailed performance testing guide, see [PERFORMANCE.md](./PERFORMANCE.md).
+See [PERFORMANCE.md](./PERFORMANCE.md) for detailed benchmarks.
 
 ## Installation
 
@@ -43,32 +29,10 @@ npm install use-idb-storage
 
 ## Quick Start
 
-### Default Instance (Simplest)
-
-```typescript
-import { idb } from 'use-idb-storage';
-
-// Use default store immediately
-await idb.store.set('user', { name: 'John' });
-const user = await idb.store.get('user');
-
-// Use custom store
-const customStore = await idb.get('settings');
-await customStore.set('theme', 'dark');
-```
-
-### React Hook (Recommended for React apps)
+### Basic Usage
 
 ```tsx
-import { useIDBStorage, IDBConfig } from 'use-idb-storage';
-
-function App() {
-  return (
-    <IDBConfig database="my-app" version={1} store="data">
-      <MyComponent />
-    </IDBConfig>
-  );
-}
+import { useIDBStorage } from 'use-idb-storage';
 
 function MyComponent() {
   const [user, setUser, removeUser] = useIDBStorage({
@@ -83,41 +47,84 @@ function MyComponent() {
         onChange={e => setUser({ ...user, name: e.target.value })}
       />
       <button onClick={() => removeUser()}>Clear</button>
+      <p>Data persists across browser sessions.</p>
     </div>
   );
 }
 ```
 
-### Class-based API (For advanced use cases)
+### Advanced Usage
+
+Use object destructuring for additional features:
+
+```tsx
+function AdvancedComponent() {
+  const {
+    data: user,
+    update: setUser,
+    reset: clearUser,
+    loading,
+    persisted,
+    error,
+    lastUpdated,
+    refresh
+  } = useIDBStorage({
+    key: 'user-profile',
+    defaultValue: { name: '', email: '', avatar: null }
+  });
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+
+  return (
+    <div>
+      <h2>{user.name || 'Anonymous'}</h2>
+      <button onClick={() => setUser(prev => ({
+        ...prev,
+        loginCount: (prev.loginCount || 0) + 1
+      }))}>
+        Increment Login Count
+      </button>
+      <button onClick={() => setUser({ ...user, name: 'John' })}>
+        Set Name
+      </button>
+      <button onClick={clearUser}>Reset</button>
+      <button onClick={() => refresh()}>Refresh from DB</button>
+      <div>
+        Status: {persisted ? 'Saved' : 'Saving...'}
+        {lastUpdated && (
+          <span>Last saved: {lastUpdated.toLocaleTimeString()}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+```
+
+### Class-based API
 
 ```tsx
 import { IDBStorage } from 'use-idb-storage';
 
-// Create storage instance
 const db = new IDBStorage({
   database: 'my-app',
   version: 1,
   store: 'data'
 });
 
-// Get a store
 const store = await db.get('my-store');
-// Or use default store
-const defaultStore = await db.store; // Convenience getter
+const defaultStore = await db.store;
 
-// Basic operations
 await store.set('user', { name: 'John', age: 30 });
 const user = await store.get('user');
 await store.delete('user');
 
-// Batch operations
 await store.setMany([
   ['key1', 'value1'],
   ['key2', 'value2']
 ]);
 const values = await store.getMany(['key1', 'key2']);
 
-// Advanced operations
 await store.update('counter', (val) => (val || 0) + 1);
 const allKeys = await store.keys();
 await store.clear();
@@ -184,29 +191,71 @@ Provides operations for a specific object store.
 
 ### useIDBStorage Hook
 
-React hook for reactive IndexedDB state management.
+Supports both simple `useState`-style usage and advanced object destructuring.
 
-```typescript
-const [value, setValue, removeValue] = useIDBStorage(options);
+#### Basic Usage
+
+```tsx
+const [value, setValue, removeValue] = useIDBStorage({
+  key: 'my-key',
+  defaultValue: 'default value'
+});
+
+setValue('new value');
+setValue(prev => prev + ' updated');
+removeValue();
+```
+
+#### Advanced Usage
+
+```tsx
+const {
+  data,
+  update,
+  reset,
+  loading,
+  persisted,
+  error,
+  lastUpdated,
+  refresh
+} = useIDBStorage({
+  key: 'my-key',
+  defaultValue: 'default value'
+});
 ```
 
 #### Parameters
 
 ```typescript
 interface IDBStorageOptions<T> {
-  key: string;
-  defaultValue: T;
-  database?: string;
-  version?: number;
-  store?: string;
+  key: string;              // Unique key for the stored value
+  defaultValue: T;          // Default value if none exists in IndexedDB
+  database?: string;        // Database name (uses context default)
+  version?: number;         // Database version (uses context default)
+  store?: string;           // Object store name (uses context default)
 }
 ```
 
-#### Returns
+#### Return Types
 
-- `value: T` - Current stored value
-- `setValue: (value: T | ((prev: T) => T)) => Promise<void>` - Update function
-- `removeValue: () => Promise<void>` - Remove function
+**Tuple Destructuring** (useState-compatible):
+```typescript
+[value: T, setValue: (value: T | ((prev: T) => T)) => void, removeValue: () => void]
+```
+
+**Object Destructuring** (Full-featured):
+```typescript
+{
+  data: T,                                    // The stored data
+  update: (value: T | ((prev: T) => T)) => void, // Update function
+  reset: () => void,                          // Reset to default
+  loading: boolean,                           // Loading state
+  persisted: boolean,                         // Persistence status
+  error: Error | null,                        // Error state
+  lastUpdated: Date | null,                   // Last update timestamp
+  refresh: () => Promise<void>                // Force refresh from DB
+}
+```
 
 ### IDBConfig Provider
 
@@ -228,72 +277,243 @@ interface IDBConfigValues {
 }
 ```
 
+## Examples
+
+### User Authentication
+
+```tsx
+function AuthProvider({ children }) {
+  const { data: user, update: setUser, reset: logout, loading } = useIDBStorage({
+    key: 'auth-user',
+    defaultValue: null
+  });
+
+  const login = async (credentials) => {
+    try {
+      const userData = await api.login(credentials);
+      setUser(userData);
+    } catch (error) {
+      console.error('Login failed:', error);
+    }
+  };
+
+  if (loading) return <div>Loading...</div>;
+
+  return (
+    <AuthContext.Provider value={{ user, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+```
+
+### Shopping Cart
+
+```tsx
+function ShoppingCart() {
+  const {
+    data: cart,
+    update: updateCart,
+    reset: clearCart,
+    persisted,
+    lastUpdated
+  } = useIDBStorage({
+    key: 'shopping-cart',
+    defaultValue: { items: [], total: 0 }
+  });
+
+  const addItem = (item) => {
+    updateCart(prev => ({
+      items: [...prev.items, item],
+      total: prev.total + item.price
+    }));
+  };
+
+  return (
+    <div>
+      <h2>Cart ({cart.items.length} items)</h2>
+      {cart.items.map(item => (
+        <div key={item.id}>{item.name} - ${item.price}</div>
+      ))}
+      <p>Total: ${cart.total}</p>
+      <button onClick={clearCart}>Clear Cart</button>
+      <div>
+        Status: {persisted ? 'Saved' : 'Saving...'}
+        {lastUpdated && <span> • Saved {lastUpdated.toLocaleTimeString()}</span>}
+      </div>
+    </div>
+  );
+}
+```
+
+### Auto-Save Form
+
+```tsx
+function AutoSaveForm() {
+  const {
+    data: formData,
+    update: updateForm,
+    loading,
+    error,
+    lastUpdated
+  } = useIDBStorage({
+    key: 'draft-form',
+    defaultValue: { title: '', content: '', tags: [] }
+  });
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      console.log('Auto-saved at', new Date().toLocaleTimeString());
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [formData]);
+
+  if (loading) return <div>Loading draft...</div>;
+  if (error) return <div>Failed to load draft: {error.message}</div>;
+
+  return (
+    <form>
+      <input
+        value={formData.title}
+        onChange={e => updateForm(prev => ({ ...prev, title: e.target.value }))}
+        placeholder="Title"
+      />
+      <textarea
+        value={formData.content}
+        onChange={e => updateForm(prev => ({ ...prev, content: e.target.value }))}
+        placeholder="Content"
+      />
+      <div>
+        {lastUpdated && (
+          <small>Last saved: {lastUpdated.toLocaleTimeString()}</small>
+        )}
+      </div>
+    </form>
+  );
+}
+```
+
+### Error Handling
+
+```tsx
+function RobustComponent() {
+  const {
+    data: settings,
+    update: updateSettings,
+    reset: resetSettings,
+    error,
+    refresh,
+    loading
+  } = useIDBStorage({
+    key: 'user-settings',
+    defaultValue: { theme: 'light', notifications: true }
+  });
+
+  if (error) {
+    return (
+      <div>
+        <p>Failed to load settings: {error.message}</p>
+        <button onClick={() => refresh()}>Retry</button>
+        <button onClick={resetSettings}>Reset to Defaults</button>
+      </div>
+    );
+  }
+
+  if (loading) return <div>Loading settings...</div>;
+
+  return (
+    <div>
+      <label>
+        Theme:
+        <select
+          value={settings.theme}
+          onChange={e => updateSettings(prev => ({
+            ...prev,
+            theme: e.target.value
+          }))}
+        >
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </label>
+    </div>
+  );
+}
+```
+
 ## Advanced Usage
 
-### Custom Stores
+### Custom Configuration
 
-```typescript
-const db = new IDBStorage({ database: 'my-app', store: 'default' });
+```tsx
+import { IDBConfig } from 'use-idb-storage';
 
-// Different stores for different data types
-const users = await db.get('users');
-const settings = await db.get('settings');
+function App() {
+  return (
+    <IDBConfig database="my-app" version={2} store="main">
+      <MyComponents />
+    </IDBConfig>
+  );
+}
 
-await users.set('user-1', { name: 'John' });
-await settings.set('theme', 'dark');
+function MyComponents() {
+  const [user] = useIDBStorage({
+    key: 'user',
+    defaultValue: { name: '' }
+  });
+
+  const [cache] = useIDBStorage({
+    key: 'api-cache',
+    defaultValue: {},
+    store: 'cache'
+  });
+
+  return <div>...</div>;
+}
 ```
 
-### Batch Operations
+### Migration
 
-```typescript
-const store = await db.getStore();
+Increment version for schema changes:
 
-// Set multiple values
-await store.setMany([
-  ['user1', { name: 'Alice' }],
-  ['user2', { name: 'Bob' }],
-  ['user3', { name: 'Charlie' }]
-]);
-
-// Get multiple values
-const users = await store.getMany(['user1', 'user2']);
-```
-
-### Reactive Updates
-
-```typescript
-const [counter, setCounter] = useIDBStorage({
-  key: 'clicks',
-  defaultValue: 0
-});
-
-// This will automatically persist to IndexedDB
-const increment = () => setCounter(count => count + 1);
-```
-
-### Migration Strategy
-
-For database migrations, increment the version number:
-
-```typescript
-// Version 1
+```tsx
 <IDBConfig database="my-app" version={1} store="data">
   <App />
 </IDBConfig>
 
-// Version 2 (with new features)
 <IDBConfig database="my-app" version={2} store="data">
   <App />
 </IDBConfig>
 ```
 
-## Browser Support
+### Class-based API
+
+```tsx
+import { IDBStorage } from 'use-idb-storage';
+
+const db = new IDBStorage({ database: 'my-app' });
+const store = await db.get('analytics');
+
+await store.setMany([
+  ['pageviews', 1234],
+  ['sessions', 89],
+  ['bounce-rate', 0.45]
+]);
+
+const allKeys = await store.keys();
+const allData = await store.values();
+```
+
+
+
+## 🌐 Browser Support
 
 - Chrome 24+
 - Firefox 16+
 - Safari 10+
 - Edge 12+
 
-## License
+## 📄 License
 
 ISC

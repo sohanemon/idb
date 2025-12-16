@@ -11,7 +11,9 @@ import type { IDBStorageOptions, UseIDBStorageReturn } from './types';
  * Optimized for performance - synchronous updates like useState with background IDB persistence.
  *
  * @param options - Configuration object containing key, defaultValue, and optional database/store names
- * @returns A tuple of the stored value, an async updater function, and a remove function.
+ * @returns An object that supports both tuple and object destructuring:
+ *   - Tuple: const [value, setValue, removeValue] = useIDBStorage()
+ *   - Object: const { data, update, reset, loading, persisted, error, lastUpdated, refresh } = useIDBStorage()
  *
  * @example
  * ```tsx
@@ -23,6 +25,7 @@ import type { IDBStorageOptions, UseIDBStorageReturn } from './types';
  * // Option 2: Global config
  * configureIDBStorage({ database: 'myApp', version: 2, store: 'data' });
  *
+ * // Tuple destructuring (like useState)
  * const [userData, setUserData, removeUserData] = useIDBStorage({
  *   key: 'currentUser',
  *   defaultValue: { name: '', email: '' },
@@ -30,6 +33,27 @@ import type { IDBStorageOptions, UseIDBStorageReturn } from './types';
  *   // version: 2, // optional, uses context or global default (increment for upgrades)
  *   // store: 'users' // optional, uses context or global default
  * });
+ *
+ * // Object destructuring (with powerful features)
+ * const {
+ *   data: userData,
+ *   update: updateUserData,
+ *   reset: resetUserData,
+ *   loading,
+ *   persisted,
+ *   error,
+ *   lastUpdated,
+ *   refresh
+ * } = useIDBStorage({
+ *   key: 'currentUser',
+ *   defaultValue: { name: '', email: '' },
+ * });
+ *
+ * // Use powerful features
+ * if (error) console.error('Storage error:', error);
+ * await refresh(); // Force reload from IndexedDB
+ * updateUserData({ name: 'John', email: 'john@example.com' }); // Direct update
+ * updateUserData(prev => ({ ...prev, lastLogin: new Date() })); // Functional update
  *
  * // Update data
  * await setUserData({ name: 'John', email: 'john@example.com' });
@@ -56,6 +80,8 @@ export function useIDBStorage<T>(
   const store = opts.store || contextConfig.store;
 
   const [storedValue, setStoredValue] = React.useState<T>(defaultValue);
+  const [error, setError] = React.useState<Error | null>(null);
+  const [lastUpdated, setLastUpdated] = React.useState<Date | null>(null);
 
   const isInitializedRef = React.useRef(false);
   const storageRef = React.useRef<IDBStorage | null>(null);
@@ -64,6 +90,7 @@ export function useIDBStorage<T>(
   const saveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const pendingValueRef = React.useRef<T | null>(null);
   const hasLoadedRef = React.useRef(false);
+  const initialValueRef = React.useRef<T | null>(null);
 
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -72,8 +99,11 @@ export function useIDBStorage<T>(
 
     const loadInitialValue = async () => {
       try {
+        setError(null);
+
         if (!isIDBAvailable()) {
           console.warn('IndexedDB is not available, using default values only');
+          initialValueRef.current = defaultValue;
           isInitializedRef.current = true;
           hasLoadedRef.current = true;
           return;
@@ -92,14 +122,22 @@ export function useIDBStorage<T>(
         storeRef.current = storeInstance;
 
         const value = await storeInstance.get<T>(key);
-        if (isMounted && value !== undefined) {
-          setStoredValue(value);
+        if (isMounted) {
+          if (value !== undefined) {
+            setStoredValue(value);
+            initialValueRef.current = value;
+            setLastUpdated(new Date());
+          } else {
+            initialValueRef.current = defaultValue;
+          }
         }
 
         isInitializedRef.current = true;
         hasLoadedRef.current = true;
       } catch (err) {
         console.error('Failed to initialize IDBStorage:', err);
+        setError(err instanceof Error ? err : new Error(String(err)));
+        initialValueRef.current = defaultValue;
         isInitializedRef.current = true;
         hasLoadedRef.current = true;
       }
@@ -150,9 +188,16 @@ export function useIDBStorage<T>(
         pendingValueRef.current = null;
 
         if (valueToSave !== null && storeRef.current) {
-          storeRef.current.set(key, valueToSave).catch((err) => {
-            console.error('Failed to save value to IndexedDB:', err);
-          });
+          storeRef.current
+            .set(key, valueToSave)
+            .then(() => {
+              setLastUpdated(new Date());
+              initialValueRef.current = valueToSave;
+            })
+            .catch((err) => {
+              console.error('Failed to save value to IndexedDB:', err);
+              setError(err instanceof Error ? err : new Error(String(err)));
+            });
         }
       }, 0); // Use 0 for next tick, or 50-100 for more aggressive batching
     },
@@ -177,8 +222,63 @@ export function useIDBStorage<T>(
 
   const removeStoredValue = React.useCallback(() => {
     setStoredValue(defaultValue);
+    setLastUpdated(null);
+    initialValueRef.current = defaultValue;
     saveToIDB(defaultValue);
   }, [defaultValue, saveToIDB]);
 
-  return [storedValue, updateStoredValue, removeStoredValue];
+  const refresh = React.useCallback(async () => {
+    if (!isIDBAvailable() || !storeRef.current) return;
+
+    try {
+      setError(null);
+      const value = await storeRef.current.get<T>(key);
+      if (value !== undefined) {
+        setStoredValue(value);
+        initialValueRef.current = value;
+        setLastUpdated(new Date());
+      } else {
+        setStoredValue(defaultValue);
+        initialValueRef.current = defaultValue;
+        setLastUpdated(null);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error(String(err)));
+    }
+  }, [key, defaultValue]);
+
+  const reset = React.useCallback(() => {
+    removeStoredValue();
+  }, [removeStoredValue]);
+
+  const update = React.useCallback(
+    (valueOrFn: T | ((prevState: T) => T)) => {
+      updateStoredValue(valueOrFn);
+    },
+    [updateStoredValue],
+  );
+
+  return Object.assign(
+    {
+      0: storedValue,
+      1: updateStoredValue,
+      2: removeStoredValue,
+      data: storedValue,
+      update,
+      reset,
+      loading: !hasLoadedRef.current,
+      persisted: hasLoadedRef.current,
+      error,
+      lastUpdated,
+      refresh,
+      length: 3 as const,
+    },
+    {
+      [Symbol.iterator]: function* () {
+        yield storedValue;
+        yield updateStoredValue;
+        yield removeStoredValue;
+      },
+    },
+  );
 }

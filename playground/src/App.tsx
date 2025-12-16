@@ -36,6 +36,11 @@ export function App() {
         </div>
 
         <div style={{ marginBottom: '30px' }}>
+          <h2>Destructuring Demo</h2>
+          <DestructuringDemo />
+        </div>
+
+        <div style={{ marginBottom: '30px' }}>
           <h2>IDBStorage Utils</h2>
           <IDBStorageUtils />
         </div>
@@ -45,7 +50,11 @@ export function App() {
 }
 
 function UserProfile() {
-  const [user, setUser, removeUser] = useIDBStorage({
+  const {
+    data: user,
+    update: updateUser,
+    reset: resetUser,
+  } = useIDBStorage({
     store: 'user',
     key: 'demo-user',
     defaultValue: { name: '', email: '', age: 0 },
@@ -54,11 +63,11 @@ function UserProfile() {
   const [tempUser, setTempUser] = useState(user);
 
   const handleSave = async () => {
-    setUser(tempUser);
+    updateUser(tempUser);
   };
 
   const handleRemove = async () => {
-    removeUser();
+    resetUser();
     setTempUser({ name: '', email: '', age: 0 });
   };
 
@@ -428,6 +437,85 @@ export function PerformanceTest() {
           )}
         </pre>
       )}
+    </div>
+  );
+}
+
+function DestructuringDemo() {
+  // Tuple destructuring (like useState)
+  const [tupleValue, setTupleValue, removeTupleValue] = useIDBStorage({
+    key: 'tuple-demo',
+    defaultValue: 'tuple-value',
+  });
+
+  // Object destructuring (with powerful features)
+  const {
+    data: objValue,
+    update: updateObjValue,
+    reset: resetObjValue,
+    loading: objLoading,
+    persisted: objPersisted,
+    error: objError,
+    lastUpdated: objLastUpdated,
+    refresh: objRefresh,
+  } = useIDBStorage({
+    key: 'object-demo',
+    defaultValue: 'object-value',
+  });
+
+  return (
+    <div
+      style={{ border: '1px solid #ccc', padding: '15px', borderRadius: '5px' }}
+    >
+      <h3>Destructuring Demo</h3>
+      <p>Demonstrates both tuple and object destructuring patterns</p>
+
+      <div style={{ marginBottom: '20px' }}>
+        <h4>Tuple Destructuring (like useState)</h4>
+        <div>Value: {tupleValue}</div>
+        <button
+          onClick={() => setTupleValue('tuple-updated')}
+          style={{ marginRight: '10px', padding: '5px 10px' }}
+        >
+          Update Tuple
+        </button>
+        <button onClick={removeTupleValue} style={{ padding: '5px 10px' }}>
+          Reset Tuple
+        </button>
+      </div>
+
+      <div>
+        <h4>Object Destructuring (Powerful Features)</h4>
+        <div>Value: {objValue}</div>
+        <div>Loading: {objLoading ? 'true' : 'false'}</div>
+        <div>Persisted: {objPersisted ? 'true' : 'false'}</div>
+        <div>Error: {objError ? objError.message : 'none'}</div>
+        <div>
+          Last Updated:{' '}
+          {objLastUpdated ? objLastUpdated.toLocaleString() : 'never'}
+        </div>
+        <button
+          onClick={() => updateObjValue('object-updated')}
+          style={{ marginRight: '10px', padding: '5px 10px' }}
+        >
+          Update Object
+        </button>
+        <button
+          onClick={() => updateObjValue((prev) => prev + ' (updated)')}
+          style={{ marginRight: '10px', padding: '5px 10px' }}
+        >
+          Functional Update
+        </button>
+        <button
+          onClick={() => objRefresh()}
+          style={{ marginRight: '10px', padding: '5px 10px' }}
+        >
+          Refresh
+        </button>
+        <button onClick={resetObjValue} style={{ padding: '5px 10px' }}>
+          Reset Object
+        </button>
+      </div>
     </div>
   );
 }
