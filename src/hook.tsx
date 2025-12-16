@@ -9,6 +9,38 @@ import type { IDBStorageOptions, UseIDBStorageReturn } from './types';
 /**
  * Hook to persist state in IndexedDB with a clean object-based API.
  * Optimized for performance - synchronous updates like useState with background IDB persistence.
+ *
+ * @param options - Configuration object containing key, defaultValue, and optional database/store names
+ * @returns A tuple of the stored value, an async updater function, and a remove function.
+ *
+ * @example
+ * ```tsx
+ * // Option 1: Using the provider (recommended)
+ * <IDBConfig database="myApp" store="data">
+ *   <App />
+ * </IDBConfig>
+ *
+ * // Option 2: Global config
+ * configureIDBStorage({ database: 'myApp', version: 2, store: 'data' });
+ *
+ * const [userData, setUserData, removeUserData] = useIDBStorage({
+ *   key: 'currentUser',
+ *   defaultValue: { name: '', email: '' },
+ *   // database: 'myApp', // optional, uses context or global default
+ *   // version: 2, // optional, uses context or global default (increment for upgrades)
+ *   // store: 'users' // optional, uses context or global default
+ * });
+ *
+ * // Update data
+ * await setUserData({ name: 'John', email: 'john@example.com' });
+ *
+ * // Remove data
+ * await removeUserData();
+ * ```
+ *
+ * @note The version parameter is used for IndexedDB database versioning.
+ * When you increment the version, it triggers database upgrades. You cannot
+ * "downgrade" to a lower version once a database exists with a higher version.
  */
 export function useIDBStorage<T>(
   options: IDBStorageOptions<T>,

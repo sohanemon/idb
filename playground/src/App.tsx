@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { IDBConfig, IDBStorage, useIDBStorage } from '../../dist/index.js';
 
 export function App() {
@@ -53,11 +53,11 @@ function UserProfile() {
   const [tempUser, setTempUser] = useState(user);
 
   const handleSave = async () => {
-    await setUser(tempUser);
+    setUser(tempUser);
   };
 
   const handleRemove = async () => {
-    await removeUser();
+    removeUser();
     setTempUser({ name: '', email: '', age: 0 });
   };
 
@@ -122,15 +122,15 @@ function Counter() {
   });
 
   const increment = async () => {
-    await setCount(count + 1);
+    setCount(count + 1);
   };
 
   const decrement = async () => {
-    await setCount(count - 1);
+    setCount(count - 1);
   };
 
   const reset = async () => {
-    await setCount(0);
+    setCount(0);
   };
 
   return (
@@ -171,18 +171,18 @@ function TodoList() {
 
   const addTodo = async () => {
     if (newTodo.trim()) {
-      await setTodos([...todos, newTodo.trim()]);
+      setTodos([...todos, newTodo.trim()]);
       setNewTodo('');
     }
   };
 
   const removeTodo = async (index: number) => {
     const newTodos = todos.filter((_, i) => i !== index);
-    await setTodos(newTodos);
+    setTodos(newTodos);
   };
 
   const clearAll = async () => {
-    await setTodos([]);
+    setTodos([]);
   };
 
   return (
@@ -246,7 +246,7 @@ function Settings() {
     key: K,
     value: (typeof settings)[K],
   ) => {
-    await setSettings({ ...settings, [key]: value });
+    setSettings({ ...settings, [key]: value });
   };
 
   return (
@@ -301,184 +301,130 @@ function Settings() {
   );
 }
 
-function PerformanceTest() {
+function useCommitTimer() {
+  const start = useRef<number | null>(null);
+  const renders = useRef(0);
+
+  renders.current++;
+
+  useLayoutEffect(() => {
+    if (start.current !== null) {
+      performance.mark('commit');
+    }
+  });
+
+  return {
+    begin() {
+      renders.current = 0;
+      start.current = performance.now();
+      performance.clearMarks();
+    },
+    end() {
+      return {
+        renders: renders.current,
+        time: performance.now() - (start.current ?? 0),
+      };
+    },
+  };
+}
+
+async function runForcedUpdates(
+  updates: number,
+  setFn: React.Dispatch<React.SetStateAction<number>>,
+) {
+  for (let i = 0; i < updates; i++) {
+    await new Promise(requestAnimationFrame);
+    setFn((v) => v + 1);
+  }
+}
+
+export function PerformanceTest() {
   const [useStateCount, setUseStateCount] = useState(0);
   const [useIDBCount, setUseIDBCount] = useIDBStorage({
     key: 'perf-test-count',
     defaultValue: 0,
   });
 
-  const [useStateTime, setUseStateTime] = useState<number | null>(null);
-  const [useIDBTime, setUseIDBTime] = useState<number | null>(null);
+  const stateTimer = useCommitTimer();
+  const idbTimer = useCommitTimer();
+
+  const [stateResult, setStateResult] = useState<any>(null);
+  const [idbResult, setIdbResult] = useState<any>(null);
   const [running, setRunning] = useState(false);
+
+  const UPDATES = 200;
 
   const testUseState = async () => {
     setRunning(true);
-    const start = performance.now();
-
-    // Do 1000 state updates
-    for (let i = 0; i < 1000; i++) {
-      setUseStateCount((prev) => prev + 1);
-    }
-
-    const end = performance.now();
-    setUseStateTime(end - start);
+    stateTimer.begin();
+    await runForcedUpdates(UPDATES, setUseStateCount);
+    setStateResult(stateTimer.end());
     setRunning(false);
   };
 
   const testUseIDBStorage = async () => {
     setRunning(true);
-    const start = performance.now();
-
-    // Do 1000 state updates (now immediate!)
-    for (let i = 0; i < 1000; i++) {
-      setUseIDBCount((prev) => prev + 1);
-    }
-
-    const end = performance.now();
-    setUseIDBTime(end - start);
+    idbTimer.begin();
+    await runForcedUpdates(UPDATES, setUseIDBCount);
+    setIdbResult(idbTimer.end());
     setRunning(false);
   };
 
-  const resetCounters = async () => {
+  const resetCounters = () => {
     setUseStateCount(0);
-    await setUseIDBCount(0);
-    setUseStateTime(null);
-    setUseIDBTime(null);
+    setUseIDBCount(0);
+    setStateResult(null);
+    setIdbResult(null);
   };
 
   return (
-    <div
-      style={{ border: '1px solid #ccc', padding: '15px', borderRadius: '5px' }}
-    >
-      <h3>Performance Comparison: useState vs useIDBStorage</h3>
+    <div style={{ border: '1px solid #ccc', padding: 15 }}>
+      <h3>Legit Performance: useState vs useIDBStorage</h3>
       <p>
-        Click the buttons below to test 1000 state updates and see the timing
-        difference. The new useIDBStorage should be as fast as useState!
+        Forced unbatched updates. Measures commit-visible time (renders +
+        scheduler), not setter enqueue cost.
       </p>
-
-      <div style={{ marginBottom: '15px' }}>
-        <div style={{ marginBottom: '10px' }}>
-          <strong>useState Count:</strong> {useStateCount}
-          {useStateTime !== null && (
-            <span style={{ marginLeft: '10px', color: 'green' }}>
-              Time: {useStateTime.toFixed(2)}ms
-            </span>
-          )}
-        </div>
-
-        <div style={{ marginBottom: '10px' }}>
-          <strong>useIDBStorage Count:</strong> {useIDBCount}
-          {useIDBTime !== null && (
-            <span style={{ marginLeft: '10px', color: 'blue' }}>
-              Time: {useIDBTime.toFixed(2)}ms
-            </span>
-          )}
-        </div>
+      <div>
+        <strong>useState:</strong> {useStateCount}
+        {stateResult && (
+          <span>
+            {' '}
+            — {stateResult.time.toFixed(2)}ms ({stateResult.renders} renders)
+          </span>
+        )}
       </div>
-
-      <div style={{ marginBottom: '15px' }}>
-        <button
-          onClick={testUseState}
-          disabled={running}
-          style={{
-            marginRight: '10px',
-            padding: '8px 15px',
-            backgroundColor: '#4CAF50',
-            color: 'white',
-            border: 'none',
-            borderRadius: '3px',
-            cursor: running ? 'not-allowed' : 'pointer',
-          }}
-        >
-          Test useState (1000 updates)
-        </button>
-
-        <button
-          onClick={testUseIDBStorage}
-          disabled={running}
-          style={{
-            marginRight: '10px',
-            padding: '8px 15px',
-            backgroundColor: '#2196F3',
-            color: 'white',
-            border: 'none',
-            borderRadius: '3px',
-            cursor: running ? 'not-allowed' : 'pointer',
-          }}
-        >
-          Test useIDBStorage (1000 updates)
-        </button>
-
-        <button
-          onClick={resetCounters}
-          disabled={running}
-          style={{
-            padding: '8px 15px',
-            backgroundColor: '#f44336',
-            color: 'white',
-            border: 'none',
-            borderRadius: '3px',
-            cursor: running ? 'not-allowed' : 'pointer',
-          }}
-        >
-          Reset
-        </button>
+      <div>
+        <strong>useIDBStorage:</strong> {useIDBCount}
+        {idbResult && (
+          <span>
+            {' '}
+            — {idbResult.time.toFixed(2)}ms ({idbResult.renders} renders)
+          </span>
+        )}
       </div>
-
-      {useStateTime !== null && useIDBTime !== null && (
-        <div
-          style={{
-            padding: '10px',
-            backgroundColor: '#f5f5f5',
-            borderRadius: '3px',
-          }}
-        >
-          <strong>Results:</strong>
-          <br />
-          useState: {useStateTime.toFixed(2)}ms
-          <br />
-          useIDBStorage: {useIDBTime.toFixed(2)}ms
-          <br />
-          <strong>
-            Difference: {Math.abs(useStateTime - useIDBTime).toFixed(2)}ms (
-            {(
-              (Math.abs(useStateTime - useIDBTime) /
-                Math.max(useStateTime, useIDBTime)) *
-              100
-            ).toFixed(1)}
-            % difference)
-          </strong>
-          <br />
-          {Math.abs(useStateTime - useIDBTime) < 1 ? (
-            <span style={{ color: 'green' }}>
-              ✅ Performance is essentially identical!
-            </span>
-          ) : (
-            <span style={{ color: 'orange' }}>
-              ⚠️ There might be a small difference
-            </span>
+      <br />
+      <button onClick={testUseState} disabled={running}>
+        Test useState ({UPDATES} updates)
+      </button>{' '}
+      <button onClick={testUseIDBStorage} disabled={running}>
+        Test useIDBStorage ({UPDATES} updates)
+      </button>{' '}
+      <button onClick={resetCounters} disabled={running}>
+        Reset
+      </button>
+      {stateResult && idbResult && (
+        <pre style={{ marginTop: 12, background: '#000', color: '#0f0' }}>
+          {JSON.stringify(
+            {
+              useState: stateResult,
+              useIDBStorage: idbResult,
+              differenceMs: Math.abs(stateResult.time - idbResult.time),
+            },
+            null,
+            2,
           )}
-        </div>
+        </pre>
       )}
-
-      <div style={{ marginTop: '15px', fontSize: '14px', color: '#666' }}>
-        <p>
-          <strong>How it works:</strong>
-        </p>
-        <ul>
-          <li>Both tests perform 1000 state updates in a loop</li>
-          <li>useState updates are synchronous and immediate</li>
-          <li>
-            useIDBStorage updates are now also immediate (state updates
-            synchronously, persistence happens in background)
-          </li>
-          <li>
-            The timing should be nearly identical - proving useIDBStorage has
-            the same performance as useState
-          </li>
-        </ul>
-      </div>
     </div>
   );
 }
