@@ -1,6 +1,6 @@
 {
   "name": "use-idb-storage",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "author": "Sohan Emon <sohanemon@outlook.com>",
   "description": "",
   "type": "module",
@@ -38,7 +38,7 @@
     "localstorage"
   ],
   "license": "ISC",
-  "homepage": "https://sohanjs.web.app/idb",
+  "homepage": "https://idb-play.vercel.app",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sohanemon/idb.git"
