@@ -4,6 +4,7 @@ import * as React from 'react';
 import { isIDBAvailable } from './database';
 import { useIDBConfig } from './idb-context';
 import { IDBStorage, type IDBStore } from './idb-storage';
+import { idbReducer } from './reducer';
 import type { IDBStorageOptions, UseIDBStorageReturn } from './types';
 
 /**
@@ -79,11 +80,7 @@ export function useIDBStorage<T>(
   );
   const store = opts.store || contextConfig.store;
 
-  const [state, setState] = React.useState<{
-    value: T;
-    error: Error | null;
-    lastUpdated: Date | null;
-  }>({
+  const [state, dispatch] = React.useReducer(idbReducer, {
     value: defaultValue,
     error: null,
     lastUpdated: null,
@@ -106,8 +103,6 @@ export function useIDBStorage<T>(
 
     const loadInitialValue = async () => {
       try {
-        // error is set in setState
-
         if (!isIDBAvailable()) {
           console.warn('IndexedDB is not available, using default values only');
           initialValueRef.current = defaultValue;
@@ -131,22 +126,21 @@ export function useIDBStorage<T>(
         const value = await storeInstance.get<T>(key);
         if (isMounted) {
           isFromIDBRef.current = true;
-          setState((prev) => ({
-            ...prev,
+          dispatch({
+            type: 'LOAD_VALUE',
             value: value !== undefined ? value : defaultValue,
-            lastUpdated: new Date(),
-          }));
+          });
           initialValueRef.current = value !== undefined ? value : defaultValue;
         }
 
         isInitializedRef.current = true;
         hasLoadedRef.current = true;
       } catch (err) {
-        console.error('Failed to initialize IDBStorage:', err);
-        setState((prev) => ({
-          ...prev,
+        console.info('⚡[useIDBStorage] error:', err);
+        dispatch({
+          type: 'SET_ERROR',
           error: err instanceof Error ? err : new Error(String(err)),
-        }));
+        });
         initialValueRef.current = defaultValue;
         isInitializedRef.current = true;
         hasLoadedRef.current = true;
@@ -172,7 +166,7 @@ export function useIDBStorage<T>(
         storeRef.current = null;
       }
     };
-  }, [database, version, store, key]); // Use primitive values as dependencies
+  }, [database, version, store, key]);
 
   const saveToIDB = React.useCallback(
     (value: T) => {
@@ -205,10 +199,10 @@ export function useIDBStorage<T>(
             })
             .catch((err) => {
               console.error('Failed to save value to IndexedDB:', err);
-              setState((prev) => ({
-                ...prev,
+              dispatch({
+                type: 'SET_ERROR',
                 error: err instanceof Error ? err : new Error(String(err)),
-              }));
+              });
             });
         }
       }, 0); // Use 0 for next tick, or 50-100 for more aggressive batching
@@ -232,28 +226,18 @@ export function useIDBStorage<T>(
 
   const updateStoredValue = React.useCallback(
     (valueOrFn: T | ((prevState: T) => T)) => {
-      setState((prev) => {
-        const newValue =
-          typeof valueOrFn === 'function'
-            ? (valueOrFn as (prevState: T) => T)(prev.value)
-            : valueOrFn;
+      const newValue =
+        typeof valueOrFn === 'function'
+          ? (valueOrFn as (prevState: T) => T)(state.value)
+          : valueOrFn;
 
-        return {
-          ...prev,
-          value: newValue,
-          lastUpdated: new Date(),
-        };
-      });
+      dispatch({ type: 'UPDATE_VALUE', value: newValue });
     },
-    [],
+    [state.value],
   );
 
   const removeStoredValue = React.useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      value: defaultValue,
-      lastUpdated: null,
-    }));
+    dispatch({ type: 'RESET', defaultValue });
     initialValueRef.current = defaultValue;
   }, [defaultValue]);
 
@@ -263,18 +247,16 @@ export function useIDBStorage<T>(
     try {
       const value = await storeRef.current.get<T>(key);
       isFromIDBRef.current = true;
-      setState((prev) => ({
-        ...prev,
+      dispatch({
+        type: 'REFRESH_SUCCESS',
         value: value !== undefined ? value : defaultValue,
-        lastUpdated: value !== undefined ? new Date() : null,
-        error: null,
-      }));
+      });
       initialValueRef.current = value !== undefined ? value : defaultValue;
     } catch (err) {
-      setState((prev) => ({
-        ...prev,
+      dispatch({
+        type: 'REFRESH_ERROR',
         error: err instanceof Error ? err : new Error(String(err)),
-      }));
+      });
     }
   }, [key, defaultValue]);
 
