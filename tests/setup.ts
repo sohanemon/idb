@@ -1,4 +1,4 @@
-import { vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, vi } from 'vitest';
 import '@testing-library/jest-dom';
 import 'fake-indexeddb/auto';
 

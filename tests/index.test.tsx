@@ -1,14 +1,14 @@
-import { renderHook, act, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { IDBConfig } from '../src/idb-context';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useIDBStorage } from '../src/hook';
+import { IDBConfig } from '../src/idb-context';
 import { IDBStorage } from '../src/idb-storage';
 import {
+  clearAllDatabases,
+  createTestDbName,
+  flushPromises,
   nextTick,
   wait,
-  flushPromises,
-  createTestDbName,
-  clearAllDatabases,
 } from './setup';
 
 describe('useIDBStorage', () => {

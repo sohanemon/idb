@@ -1,6 +1,6 @@
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { IDBStorage } from '../src/idb-storage';
-import { createTestDbName, clearAllDatabases } from './setup';
+import { clearAllDatabases, createTestDbName } from './setup';
 
 describe('IDBStorage', () => {
   let testDbName: string;

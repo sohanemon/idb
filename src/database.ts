@@ -40,14 +40,23 @@ export function openDB(
 function _openDB(
   dbName: string,
   storeName: string,
-  version: number,
+  version?: number,
   onVersionChange?: () => void,
 ): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(dbName, version);
 
     request.onerror = () => {
-      dbConnections.delete(`${dbName}:${version}:${storeName}`);
+      const key = `${dbName}:${version ?? 'current'}:${storeName}`;
+      dbConnections.delete(key);
+      // If version error due to requested version being less than current, retry with current version
+      if (
+        request.error?.name === 'VersionError' &&
+        request.error.message.includes('less than')
+      ) {
+        resolve(_openDB(dbName, storeName, undefined, onVersionChange));
+        return;
+      }
       reject(request.error);
     };
 
@@ -60,13 +69,17 @@ function _openDB(
 
     request.onsuccess = () => {
       const db = request.result;
+      const currentVersion = db.version;
 
       // Check if store exists, if not, we need to upgrade
       if (!db.objectStoreNames.contains(storeName)) {
         db.close();
-        dbConnections.delete(`${dbName}:${version}:${storeName}`);
+        const key = `${dbName}:${version ?? 'current'}:${storeName}`;
+        dbConnections.delete(key);
         // Try with higher version
-        resolve(_openDB(dbName, storeName, version + 1, onVersionChange));
+        resolve(
+          _openDB(dbName, storeName, currentVersion + 1, onVersionChange),
+        );
         return;
       }
 
