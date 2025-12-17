@@ -1,4 +1,5 @@
 import { getFromDB, openDB, removeFromDB, setInDB } from './database';
+import { getGlobalConfig } from './config';
 import type { IDBConfigValues } from './types';
 
 /**
@@ -224,13 +225,14 @@ export class IDBStorage {
   private dbPromise: Promise<IDBDatabase> | null = null;
 
   constructor(config?: Partial<IDBConfigValues>) {
+    const globalConfig = getGlobalConfig();
     const defaultConfig: IDBConfigValues = {
       database: 'sohanemon-idb',
       version: 1,
       store: 'default',
     };
 
-    this.config = { ...defaultConfig, ...config };
+    this.config = { ...defaultConfig, ...globalConfig, ...config };
     this.config.version = Math.max(1, Math.floor(this.config.version));
   }
 

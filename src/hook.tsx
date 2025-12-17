@@ -1,8 +1,8 @@
 'use client';
 
 import * as React from 'react';
+import { getGlobalConfig } from './config';
 import { isIDBAvailable } from './database';
-import { useIDBConfig } from './idb-context';
 import { IDBStorage, type IDBStore } from './idb-storage';
 import { idbReducer } from './reducer';
 import type { IDBStorageOptions, UseIDBStorageReturn } from './types';
@@ -18,24 +18,24 @@ import type { IDBStorageOptions, UseIDBStorageReturn } from './types';
  *
  * @example
  * ```tsx
- * // Option 1: Using the provider (recommended)
- * <IDBConfig database="myApp" store="data">
- *   <App />
- * </IDBConfig>
+ * // Configure defaults for the app (optional)
+ * import { IDBConfig } from 'use-idb-storage';
  *
- * // Option 2: Global config
- * configureIDBStorage({ database: 'myApp', version: 2, store: 'data' });
+ * function App() {
+ *   return (
+ *     <IDBConfig database="myApp" version={2} store="data">
+ *       <MyComponent />
+ *     </IDBConfig>
+ *   );
+ * }
  *
- * // Tuple destructuring (like useState)
+ * // In MyComponent:
  * const [userData, setUserData, removeUserData] = useIDBStorage({
  *   key: 'currentUser',
  *   defaultValue: { name: '', email: '' },
- *   // database: 'myApp', // optional, uses context or global default
- *   // version: 2, // optional, uses context or global default (increment for upgrades)
- *   // store: 'users' // optional, uses context or global default
  * });
  *
- * // Object destructuring (with powerful features)
+ * // Object destructuring
  * const {
  *   data: userData,
  *   update: updateUserData,
@@ -50,17 +50,11 @@ import type { IDBStorageOptions, UseIDBStorageReturn } from './types';
  *   defaultValue: { name: '', email: '' },
  * });
  *
- * // Use powerful features
+ * // Use features
  * if (error) console.error('Storage error:', error);
- * await refresh(); // Force reload from IndexedDB
- * updateUserData({ name: 'John', email: 'john@example.com' }); // Direct update
- * updateUserData(prev => ({ ...prev, lastLogin: new Date() })); // Functional update
- *
- * // Update data
- * await setUserData({ name: 'John', email: 'john@example.com' });
- *
- * // Remove data
- * await removeUserData();
+ * await refresh();
+ * updateUserData({ name: 'Sohan', email: 'sohan@example.com' });
+ * updateUserData(prev => ({ ...prev, lastLogin: new Date() }));
  * ```
  *
  * @note The version parameter is used for IndexedDB database versioning.
@@ -71,14 +65,9 @@ export function useIDBStorage<T>(
   options: IDBStorageOptions<T>,
 ): UseIDBStorageReturn<T> {
   const { key, defaultValue, ...opts } = options;
-  const contextConfig = useIDBConfig();
+  const globalConfig = getGlobalConfig();
 
-  const database = opts.database || contextConfig.database;
-  const version = Math.max(
-    1,
-    Math.floor(opts.version || contextConfig.version || 1),
-  );
-  const store = opts.store || contextConfig.store;
+  const conf = { ...globalConfig, ...opts };
 
   const [state, dispatch] = React.useReducer(idbReducer, {
     value: defaultValue,
@@ -115,8 +104,8 @@ export function useIDBStorage<T>(
           storageRef.current.close();
         }
 
-        const storage = new IDBStorage({ database, version, store });
-        const storeInstance = await storage.get(store);
+        const storage = new IDBStorage(conf);
+        const storeInstance = await storage.get(conf.store);
 
         if (!isMounted) return;
 
@@ -166,7 +155,7 @@ export function useIDBStorage<T>(
         storeRef.current = null;
       }
     };
-  }, [database, version, store, key]);
+  }, [conf, key]);
 
   const saveToIDB = React.useCallback(
     (value: T) => {

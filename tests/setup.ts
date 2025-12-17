@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, vi } from 'vitest';
 import '@testing-library/jest-dom';
 import 'fake-indexeddb/auto';
+import { configureIDBStorage } from '../src/config';
 
 // Mock matchMedia
 Object.defineProperty(window, 'matchMedia', {
@@ -54,6 +55,12 @@ export const clearAllDatabases = async () => {
 // Setup and teardown for each test
 beforeEach(() => {
   vi.clearAllMocks();
+  // Reset global config to defaults
+  configureIDBStorage({
+    database: 'sohanemon-idb',
+    version: 1,
+    store: 'default',
+  });
 });
 
 afterEach(async () => {

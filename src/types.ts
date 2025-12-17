@@ -21,14 +21,6 @@ export interface IDBStorageOptions<T> extends Partial<IDBConfigValues> {
 }
 
 /**
- * Props for the IDBConfig component.
- */
-export interface IDBConfigProps extends Partial<IDBConfigValues> {
-  /** The children to render */
-  children: React.ReactNode;
-}
-
-/**
  * Return type of the useIDBStorage hook
  * Supports both tuple destructuring: const [value, setValue, removeValue] = useIDBStorage()
  * and object destructuring: const { value, update, reset, loading, persisted, ... } = useIDBStorage()

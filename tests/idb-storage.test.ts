@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { configureIDBStorage, getGlobalConfig } from '../src/config';
 import { IDBStorage } from '../src/idb-storage';
 import { clearAllDatabases, createTestDbName } from './setup';
 
@@ -27,6 +28,56 @@ describe('IDBStorage', () => {
       };
       const storage = new IDBStorage(config);
       expect(storage).toBeInstanceOf(IDBStorage);
+    });
+
+    it('should use global config when no config provided', () => {
+      // Set global config
+      const globalConfig = {
+        database: 'global-db',
+        version: 3,
+        store: 'global-store',
+      };
+      configureIDBStorage(globalConfig);
+
+      // Create storage without config - should use global config
+      const storage = new IDBStorage();
+      expect(storage).toBeInstanceOf(IDBStorage);
+
+      // Verify global config was applied
+      const retrievedConfig = getGlobalConfig();
+      expect(retrievedConfig).toEqual(globalConfig);
+
+      // Reset global config
+      configureIDBStorage({
+        database: 'sohanemon-idb',
+        version: 1,
+        store: 'default',
+      });
+    });
+
+    it('should override global config with constructor config', () => {
+      // Set global config
+      configureIDBStorage({
+        database: 'global-db',
+        version: 3,
+        store: 'global-store',
+      });
+
+      // Create storage with explicit config - should override global
+      const explicitConfig = {
+        database: testDbName,
+        version: 5,
+        store: 'explicit-store',
+      };
+      const storage = new IDBStorage(explicitConfig);
+      expect(storage).toBeInstanceOf(IDBStorage);
+
+      // Reset global config
+      configureIDBStorage({
+        database: 'sohanemon-idb',
+        version: 1,
+        store: 'default',
+      });
     });
 
     it('should get a store instance', async () => {

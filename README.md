@@ -69,6 +69,116 @@ function AdvancedComponent() {
     lastUpdated,
     refresh
   } = useIDBStorage({
+    key: 'current-user',
+    defaultValue: { name: '', email: '', avatar: null }
+  });
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+
+  return (
+    <div>
+      <h2>{user.name || 'Anonymous'}</h2>
+      <button onClick={() => setUser(prev => ({
+        ...prev,
+        loginCount: (prev.loginCount || 0) + 1
+      }))}>
+        Increment Login Count
+      </button>
+      <button onClick={() => setUser({ ...user, name: 'John' })}>
+        Set Name
+      </button>
+      <button onClick={clearUser}>Reset</button>
+      <button onClick={() => refresh()}>Refresh from DB</button>
+      <div>
+        Status: {persisted ? 'Saved' : 'Saving...'}
+        {lastUpdated && (
+          <span>Last saved: {lastUpdated.toLocaleTimeString()}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+```
+
+### Global Configuration
+
+Configure global defaults that affect all hooks and the exported `idb` instance:
+
+```tsx
+import { configureIDBStorage, useIDBStorage, idb } from 'use-idb-storage';
+
+// Set global configuration
+configureIDBStorage({
+  database: 'my-app',
+  version: 1,
+  store: 'data'
+});
+
+// Hooks automatically use global config
+function MyComponent() {
+  const [user] = useIDBStorage({
+    key: 'current-user',
+    defaultValue: { name: '' }
+  }); // Uses global config: database="my-app", store="data"
+
+  // Override specific settings
+  const [cache] = useIDBStorage({
+    key: 'api-cache',
+    defaultValue: {},
+    store: 'cache' // Overrides global store
+  }); // Uses: database="my-app", store="cache"
+
+  return <div>...</div>;
+}
+
+// The exported instance also uses global config
+async function saveGlobalData() {
+  const store = await idb.store; // Uses global config
+  await store.set('global-key', 'global-value');
+}
+```
+
+### Global Configuration (No Context Required)
+
+```tsx
+import { configureIDBStorage, idb } from 'use-idb-storage';
+
+// Configure global defaults
+configureIDBStorage({
+  database: 'my-app',
+  version: 1,
+  store: 'data'
+});
+
+// Use the pre-configured instance
+async function saveUser(userData) {
+  const store = await idb.store;
+  await store.set('current-user', userData);
+}
+
+async function getUser() {
+  const store = await idb.store;
+  return await store.get('current-user');
+}
+```
+
+### Advanced Usage
+
+Use object destructuring for additional features:
+
+```tsx
+function AdvancedComponent() {
+  const {
+    data: user,
+    update: setUser,
+    reset: clearUser,
+    loading,
+    persisted,
+    error,
+    lastUpdated,
+    refresh
+  } = useIDBStorage({
     key: 'user-profile',
     defaultValue: { name: '', email: '', avatar: null }
   });
@@ -144,6 +254,25 @@ A pre-configured `IDBStorage` instance using global defaults. Perfect for quick 
 - `idb.get(storeName: string): Promise<IDBStore>` - Get a specific store
 - `idb.drop(storeName: string): Promise<void>` - Clear a store
 - `idb.close(): void` - Close the database connection
+
+#### Global Configuration
+
+Configure global defaults that affect the default `idb` instance:
+
+```typescript
+import { configureIDBStorage, idb } from 'use-idb-storage';
+
+// Set global configuration
+configureIDBStorage({
+  database: 'my-app',
+  version: 1,
+  store: 'data'
+});
+
+// Now idb.store refers to the 'data' store in 'my-app' database
+const store = await idb.store;
+await store.set('user', { name: 'John' });
+```
 
 ### IDBStorage Class
 
@@ -257,15 +386,23 @@ interface IDBStorageOptions<T> {
 }
 ```
 
-### IDBConfig Provider
+### Global Configuration
 
-React context provider for default configuration.
+Configure global defaults for all hooks and the exported `idb` instance:
 
-```tsx
-<IDBConfig database="my-app" version={1} store="data">
-  <App />
-</IDBConfig>
+```typescript
+import { configureIDBStorage } from 'use-idb-storage';
+
+configureIDBStorage({
+  database: 'my-app',
+  version: 1,
+  store: 'data'
+});
 ```
+
+This sets the global defaults that are used by:
+- All `useIDBStorage` hooks (unless explicitly overridden)
+- The exported `idb` instance
 
 ### Configuration
 
@@ -275,6 +412,13 @@ interface IDBConfigValues {
   version?: number;    // Database version (default: 1)
   store: string;       // Default object store name
 }
+
+// Configure global defaults
+configureIDBStorage({
+  database: 'my-app',
+  version: 1,
+  store: 'data'
+});
 ```
 
 ## Examples
@@ -447,27 +591,34 @@ function RobustComponent() {
 ### Custom Configuration
 
 ```tsx
-import { IDBConfig } from 'use-idb-storage';
+import { configureIDBStorage, useIDBStorage, idb } from 'use-idb-storage';
 
-function App() {
-  return (
-    <IDBConfig database="my-app" version={2} store="main">
-      <MyComponents />
-    </IDBConfig>
-  );
-}
+// Configure global defaults
+configureIDBStorage({
+  database: 'my-app',
+  version: 2,
+  store: 'data'
+});
 
 function MyComponents() {
+  // Uses global config: database="my-app", store="data"
   const [user] = useIDBStorage({
     key: 'user',
     defaultValue: { name: '' }
   });
 
+  // Overrides store: database="my-app", store="cache"
   const [cache] = useIDBStorage({
     key: 'api-cache',
     defaultValue: {},
     store: 'cache'
   });
+
+  // Uses global config: database="my-app", store="data"
+  const saveToGlobalStore = async () => {
+    const store = await idb.store;
+    await store.set('global-key', 'global-value');
+  };
 
   return <div>...</div>;
 }

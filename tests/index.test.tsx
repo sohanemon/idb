@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { configureIDBStorage } from '../src/config';
 import { useIDBStorage } from '../src/hook';
-import { IDBConfig } from '../src/idb-context';
 import { IDBStorage } from '../src/idb-storage';
 import {
   clearAllDatabases,
@@ -28,6 +28,9 @@ describe('useIDBStorage', () => {
         useIDBStorage({
           key: 'test-key',
           defaultValue: { value: 'default' },
+          database: 'test-db',
+          version: 1,
+          store: 'test-store',
         }),
       );
 
@@ -41,6 +44,7 @@ describe('useIDBStorage', () => {
           key: 'test-key',
           defaultValue: { value: 'default' },
           database: testDbName,
+          version: 1,
           store: 'custom-store',
         }),
       );
@@ -53,6 +57,9 @@ describe('useIDBStorage', () => {
         useIDBStorage({
           key: 'primitive-key',
           defaultValue: 42,
+          database: 'test-db',
+          version: 1,
+          store: 'default',
         }),
       );
 
@@ -64,6 +71,9 @@ describe('useIDBStorage', () => {
         useIDBStorage({
           key: 'string-key',
           defaultValue: 'hello world',
+          database: 'test-db',
+          version: 1,
+          store: 'default',
         }),
       );
 
@@ -76,6 +86,9 @@ describe('useIDBStorage', () => {
         useIDBStorage({
           key: 'array-key',
           defaultValue: defaultArray,
+          database: 'test-db',
+          version: 1,
+          store: 'default',
         }),
       );
 
@@ -87,6 +100,9 @@ describe('useIDBStorage', () => {
         useIDBStorage({
           key: 'null-key',
           defaultValue: null,
+          database: 'test-db',
+          version: 1,
+          store: 'default',
         }),
       );
 
@@ -96,12 +112,15 @@ describe('useIDBStorage', () => {
     it('should support object destructuring', () => {
       const { result } = renderHook(() =>
         useIDBStorage({
-          key: 'object-destructure-key',
-          defaultValue: 'object-value',
+          key: 'object-key',
+          defaultValue: 'test',
+          database: 'test-db',
+          version: 1,
+          store: 'default',
         }),
       );
 
-      expect(result.current.data).toBe('object-value');
+      expect(result.current.data).toBe('test');
       expect(result.current.update).toBeInstanceOf(Function);
       expect(result.current.reset).toBeInstanceOf(Function);
       expect(result.current.length).toBe(3);
@@ -159,36 +178,34 @@ describe('useIDBStorage', () => {
     });
   });
 
-  describe('Context Configuration', () => {
-    it('should use context configuration when no explicit config provided', () => {
-      const contextValue = {
+  describe('Global Configuration', () => {
+    it('should use global configuration when no explicit config provided', () => {
+      const globalValue = {
         database: testDbName,
-        store: 'context-store',
+        store: 'global-store',
         version: 2,
       };
 
-      const wrapper = ({ children }: { children: React.ReactNode }) => (
-        <IDBConfig {...contextValue}>{children}</IDBConfig>
+      configureIDBStorage(globalValue);
+
+      const { result } = renderHook(() =>
+        useIDBStorage({
+          key: 'global-test',
+          defaultValue: 'global-value',
+        }),
       );
 
-      const { result } = renderHook(
-        () =>
-          useIDBStorage({
-            key: 'context-test',
-            defaultValue: 'context-value',
-          }),
-        { wrapper },
-      );
-
-      expect(result.current[0]).toBe('context-value');
+      expect(result.current[0]).toBe('global-value');
     });
 
-    it('should override context config with explicit options', () => {
-      const contextValue = {
-        database: 'context-db',
-        store: 'context-store',
+    it('should override global config with explicit options', () => {
+      const globalValue = {
+        database: 'global-db',
+        store: 'global-store',
         version: 1,
       };
+
+      configureIDBStorage(globalValue);
 
       const explicitConfig = {
         database: testDbName,
@@ -196,18 +213,12 @@ describe('useIDBStorage', () => {
         version: 3,
       };
 
-      const wrapper = ({ children }: { children: React.ReactNode }) => (
-        <IDBConfig {...contextValue}>{children}</IDBConfig>
-      );
-
-      const { result } = renderHook(
-        () =>
-          useIDBStorage({
-            key: 'override-test',
-            defaultValue: 'override-value',
-            ...explicitConfig,
-          }),
-        { wrapper },
+      const { result } = renderHook(() =>
+        useIDBStorage({
+          key: 'override-test',
+          defaultValue: 'override-value',
+          ...explicitConfig,
+        }),
       );
 
       expect(result.current[0]).toBe('override-value');
