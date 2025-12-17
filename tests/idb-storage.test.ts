@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { configureIDBStorage, getGlobalConfig } from '../src/config';
+import { configureIDBStorage, getGlobalConfig } from '../src';
 import { IDBStorage } from '../src/idb-storage';
 import { clearAllDatabases, createTestDbName } from './setup';
 

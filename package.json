@@ -1,8 +1,8 @@
 {
   "name": "use-idb-storage",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": "Sohan Emon <sohanemon@outlook.com>",
-  "description": "",
+  "description": "A React hook for IndexedDB state management with automatic persistence, similar to useState but with data persistence across sessions.",
   "type": "module",
   "files": [
     "dist"

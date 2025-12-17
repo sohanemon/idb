@@ -1,5 +1,5 @@
+import { getGlobalConfig } from '.';
 import { getFromDB, openDB, removeFromDB, setInDB } from './database';
-import { getGlobalConfig } from './config';
 import type { IDBConfigValues } from './types';
 
 /**

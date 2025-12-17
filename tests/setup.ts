@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, vi } from 'vitest';
 import '@testing-library/jest-dom';
 import 'fake-indexeddb/auto';
-import { configureIDBStorage } from '../src/config';
+import { configureIDBStorage } from '../src/utils';
 
 // Mock matchMedia
 Object.defineProperty(window, 'matchMedia', {

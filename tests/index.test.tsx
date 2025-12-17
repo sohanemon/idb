@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { configureIDBStorage } from '../src/config';
+import { configureIDBStorage } from '../src';
 import { useIDBStorage } from '../src/hook';
 import { IDBStorage } from '../src/idb-storage';
 import {

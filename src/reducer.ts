@@ -12,6 +12,14 @@ export type IDBAction<T> =
   | { type: 'REFRESH_SUCCESS'; value: T }
   | { type: 'REFRESH_ERROR'; error: Error };
 
+/**
+ * Reducer function for managing IDBStorage hook state.
+ * Handles state updates, error management, and persistence tracking.
+ *
+ * @param state - Current state
+ * @param action - Action to apply
+ * @returns New state after applying the action
+ */
 export const idbReducer = <T>(
   state: IDBState<T>,
   action: IDBAction<T>,
