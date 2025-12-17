@@ -67,7 +67,10 @@ export function useIDBStorage<T>(
   const { key, defaultValue, ...opts } = options;
   const globalConfig = getGlobalConfig();
 
-  const conf = { ...globalConfig, ...opts };
+  const conf = React.useMemo(
+    () => ({ ...globalConfig, ...opts }),
+    [globalConfig, opts],
+  );
 
   const [state, dispatch] = React.useReducer(idbReducer, {
     value: defaultValue,
@@ -155,7 +158,7 @@ export function useIDBStorage<T>(
         storeRef.current = null;
       }
     };
-  }, [conf, key]);
+  }, [conf.database, conf.version, conf.store, key]);
 
   const saveToIDB = React.useCallback(
     (value: T) => {

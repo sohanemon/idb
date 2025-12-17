@@ -391,4 +391,140 @@ describe('useIDBStorage', () => {
       });
     });
   });
+
+  describe('Render Optimization', () => {
+    it('should not cause infinite re-renders during initialization', async () => {
+      let renderCount = 0;
+
+      const { result, rerender } = renderHook(() => {
+        renderCount++;
+        return useIDBStorage({
+          key: 'render-test',
+          defaultValue: 'test-value',
+          database: testDbName,
+        });
+      });
+
+      // Wait for initialization to complete
+      await waitFor(() => {
+        expect(result.current[0]).toBe('test-value');
+      });
+
+      const initialRenderCount = renderCount;
+
+      // Force a few re-renders
+      rerender();
+      rerender();
+      rerender();
+
+      // Wait a bit to ensure no additional renders are triggered
+      await wait(50);
+
+      // Should not have excessive renders (allow some buffer for React's internal renders)
+      expect(renderCount - initialRenderCount).toBeLessThan(5);
+    });
+
+    it('should not re-render unnecessarily when config stays the same', async () => {
+      let renderCount = 0;
+
+      const stableConfig = {
+        key: 'stable-config-test',
+        defaultValue: 'stable',
+        database: testDbName,
+        store: 'default',
+        version: 1,
+      };
+
+      const { result, rerender } = renderHook(
+        (config) => {
+          renderCount++;
+          return useIDBStorage(config);
+        },
+        { initialProps: stableConfig },
+      );
+
+      // Wait for initialization
+      await waitFor(() => {
+        expect(result.current[0]).toBe('stable');
+      });
+
+      const initialRenderCount = renderCount;
+
+      // Re-render with same config (should not trigger hook re-initialization)
+      rerender(stableConfig);
+      rerender(stableConfig);
+
+      // Wait to ensure no additional renders
+      await wait(50);
+
+      // Should not have triggered additional hook re-initialization renders
+      expect(renderCount - initialRenderCount).toBeLessThan(3);
+    });
+
+    it('should minimize renders during rapid updates', async () => {
+      let renderCount = 0;
+
+      const { result } = renderHook(() => {
+        renderCount++;
+        return useIDBStorage({
+          key: 'rapid-render-test',
+          defaultValue: 0,
+          database: testDbName,
+        });
+      });
+
+      // Wait for initialization
+      await waitFor(() => {
+        expect(result.current[0]).toBe(0);
+      });
+
+      const initialRenderCount = renderCount;
+
+      // Perform rapid updates
+      act(() => result.current[1](1));
+      act(() => result.current[1](2));
+      act(() => result.current[1](3));
+      act(() => result.current[1](4));
+
+      // Wait for updates to settle
+      await wait(100);
+
+      // Should have reasonable render count (initial + 4 updates + some buffer)
+      expect(renderCount - initialRenderCount).toBeLessThan(10);
+    });
+
+    it('should handle config changes without excessive renders', async () => {
+      let renderCount = 0;
+
+      const { result, rerender } = renderHook(
+        ({ key }: { key: string }) => {
+          renderCount++;
+          return useIDBStorage({
+            key,
+            defaultValue: 'test',
+            database: testDbName,
+          });
+        },
+        { initialProps: { key: 'initial-key' } },
+      );
+
+      // Wait for initialization
+      await waitFor(() => {
+        expect(result.current[0]).toBe('test');
+      });
+
+      const initialRenderCount = renderCount;
+
+      // Change key (should trigger re-initialization)
+      rerender({ key: 'new-key' });
+
+      // Wait for new initialization
+      await waitFor(() => {
+        expect(result.current[0]).toBe('test');
+      });
+
+      // Should have re-initialized but not infinitely
+      expect(renderCount - initialRenderCount).toBeLessThan(10);
+    });
+  });
 });
