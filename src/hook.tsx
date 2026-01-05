@@ -1,11 +1,11 @@
 'use client';
 
 import * as React from 'react';
+import { getGlobalConfig } from '.';
 import { isIDBAvailable } from './database';
 import { IDBStorage, type IDBStore } from './idb-storage';
 import { idbReducer } from './reducer';
 import type { IDBStorageOptions, UseIDBStorageReturn } from './types';
-import { getGlobalConfig } from '.';
 
 /**
  * Hook to persist state in IndexedDB with a clean object-based API.

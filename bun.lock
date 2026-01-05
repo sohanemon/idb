@@ -4,9 +4,6 @@
   "workspaces": {
     "": {
       "name": "@sohanemon/utils",
-      "dependencies": {
-        "react-scan": "^0.4.3",
-      },
       "devDependencies": {
         "@biomejs/biome": "2.3.8",
         "@testing-library/jest-dom": "^6.9.1",
@@ -19,6 +16,7 @@
         "@vitest/ui": "^4.0.14",
         "fake-indexeddb": "^6.2.5",
         "jsdom": "^27.2.0",
+        "react-scan": "^0.4.3",
         "tsdown": "^0.16.4",
         "typescript": "^5.9.3",
         "vite": "npm:rolldown-vite@^7.2.5",

@@ -233,7 +233,6 @@ export class IDBStorage {
     };
 
     this.config = { ...defaultConfig, ...globalConfig, ...config };
-    this.config.version = Math.max(1, Math.floor(this.config.version));
   }
 
   /**
@@ -244,16 +243,11 @@ export class IDBStorage {
 
     if (this.dbPromise) return this.dbPromise;
 
-    this.dbPromise = openDB(
-      this.config.database,
-      this.config.store,
-      this.config.version,
-      () => {
-        // Reset the cached db when version changes
-        this.db = null;
-        this.dbPromise = null;
-      },
-    );
+    this.dbPromise = openDB(this.config.database, this.config.store, () => {
+      // Reset the cached db when version changes
+      this.db = null;
+      this.dbPromise = null;
+    });
     this.db = await this.dbPromise;
     this.dbPromise = null;
 

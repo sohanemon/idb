@@ -16,19 +16,18 @@ export function isIDBAvailable(): boolean {
 export function openDB(
   dbName: string,
   storeName: string,
-  version = 1,
   onVersionChange?: () => void,
 ): Promise<IDBDatabase> {
   if (!isIDBAvailable()) {
     throw new Error('IndexedDB is not available in this environment');
   }
-  const key = `${dbName}:${version}:${storeName}`;
+  const key = `${dbName}:${storeName}`;
 
   if (dbConnections.has(key)) {
     return dbConnections.get(key)!;
   }
 
-  const dbPromise = _openDB(dbName, storeName, version, onVersionChange);
+  const dbPromise = _openDB(dbName, storeName, onVersionChange);
   dbConnections.set(key, dbPromise);
 
   return dbPromise;
@@ -40,23 +39,14 @@ export function openDB(
 function _openDB(
   dbName: string,
   storeName: string,
-  version?: number,
   onVersionChange?: () => void,
 ): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(dbName, version);
+    const request = indexedDB.open(dbName, undefined);
 
     request.onerror = () => {
-      const key = `${dbName}:${version ?? 'current'}:${storeName}`;
+      const key = `${dbName}:${storeName}`;
       dbConnections.delete(key);
-      // If version error due to requested version being less than current, retry with current version
-      if (
-        request.error?.name === 'VersionError' &&
-        request.error.message.includes('less than')
-      ) {
-        resolve(_openDB(dbName, storeName, undefined, onVersionChange));
-        return;
-      }
       reject(request.error);
     };
 
@@ -69,17 +59,34 @@ function _openDB(
 
     request.onsuccess = () => {
       const db = request.result;
-      const currentVersion = db.version;
 
       // Check if store exists, if not, we need to upgrade
       if (!db.objectStoreNames.contains(storeName)) {
         db.close();
-        const key = `${dbName}:${version ?? 'current'}:${storeName}`;
+        const key = `${dbName}:${storeName}`;
         dbConnections.delete(key);
         // Try with higher version
-        resolve(
-          _openDB(dbName, storeName, currentVersion + 1, onVersionChange),
-        );
+        const request2 = indexedDB.open(dbName, db.version + 1);
+        request2.onupgradeneeded = (event) => {
+          const db2 = (event.target as IDBOpenDBRequest).result;
+          if (!db2.objectStoreNames.contains(storeName)) {
+            db2.createObjectStore(storeName);
+          }
+        };
+        request2.onsuccess = () => {
+          const db2 = request2.result;
+          db2.onversionchange = () => {
+            db2.close();
+            for (const [k] of dbConnections) {
+              if (k.startsWith(`${dbName}:`)) {
+                dbConnections.delete(k);
+              }
+            }
+            onVersionChange?.();
+          };
+          resolve(db2);
+        };
+        request2.onerror = () => reject(request2.error);
         return;
       }
 
