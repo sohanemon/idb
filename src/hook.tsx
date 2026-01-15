@@ -103,10 +103,6 @@ export function useIDBStorage<T>(
           return;
         }
 
-        if (storageRef.current) {
-          storageRef.current.close();
-        }
-
         const storage = new IDBStorage(conf);
         const storeInstance = await storage.get(conf.store);
 
